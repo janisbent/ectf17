@@ -8,8 +8,8 @@ Feel free to modify (but notify other teams)
 
 Verifies user and gives size of firmware data
 
-16b verification nonce
-16b size of firmware
+16b Verification nonce
+16b Number of frames
 
 ## Body
 
@@ -18,5 +18,10 @@ Firmware data
 16b Version number
 16b Size of distribution message
 DISTRIBUTION MESSAGE
-16b size of firmware
+16b Size of firmware
 FIRMWARE
+
+## Frame
+
+16b frame length in bytes
+DATA
