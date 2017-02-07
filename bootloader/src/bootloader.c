@@ -143,6 +143,10 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
+	/*
+	 * RECIEVE DATA 
+ 	 */
+
     // Get version.
     rcv = UART1_getchar();
     version = (uint16_t)rcv << 8;
