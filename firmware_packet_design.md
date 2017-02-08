@@ -19,9 +19,11 @@ Firmware data
 16b Size of distribution message
 DISTRIBUTION MESSAGE
 16b Size of firmware
-FIRMWARE
+FIRMWARE - frames should come in 256 byte blocks to align with flash page size
 
 ## Frame
+
+Max length of data is 256 bytes
 
 16b frame length in bytes
 DATA

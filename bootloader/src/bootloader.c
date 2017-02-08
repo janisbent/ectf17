@@ -32,11 +32,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <util/delay.h>
-#include "uart.h"
 #include <avr/boot.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+
+#include "uart.h"
+#include "decrypt.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -45,11 +47,17 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
+void get_body(uint32_t num_frames);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 
-int main(void)
+const uint16_t HEADER_SIZE = 4;
+const uint16_t NONCE_POS = 0;
+const uint16_t FRAMES_POS = 1;
+
+
+int main(void) 
 {
     // Init UART1 (virtual com port)
     UART1_init();
@@ -133,6 +141,7 @@ void load_firmware(void)
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
+    uint32_t int num_frames = 0;
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -143,7 +152,39 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
-	/*
+    // Get two bytes for the frame length.
+    rcv = UART1_getchar();
+    frame_length = (int)rcv << 8;
+    rcv = UART1_getchar();
+    frame_length += (int)rcv;
+    wdt_reset();
+
+    // Abort if invalid header length
+    while (!valid_nonce(data[NONCE_POS]))
+    {
+        __asm__ __volatile__("");
+    }
+    wdt_reset();
+
+    // Get header data
+    for (; i < HEADER_SIZE; i++) 
+    {
+        data[i] = UART1_getchar();
+    }
+    wdt_reset();
+
+    decrypt(data, HEADER_SIZE);
+    wdt_reset();
+    
+    // Abort if invalid nonce
+    while (!valid_nonce(data[NONCE_POS]))
+    {
+        __asm__ __volatile__("");
+    }
+    wdt_reset();
+
+    get_body(
+    /*
 	 * RECIEVE DATA 
  	 */
 
@@ -293,3 +334,15 @@ void program_flash(uint32_t page_address, unsigned char *data)
     boot_page_write_safe(page_address);
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
+
+/*
+ * Reads data in a frame at a time
+ * 
+ */
+void get_body(uint32_t num_frames)
+{
+    h
+}
+
+
+
