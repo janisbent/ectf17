@@ -13,7 +13,6 @@ Verifies user and gives information about the upcoming package and frames
  2B Firmware size
  2B Number of body frames
  2B Number of release message frames
-------------------------------------
 10B Total
 
 ## Frame
@@ -22,5 +21,4 @@ Packet for data
 
   4B Verification nonce
 256B Data
------------------------
 260B Total
