@@ -5,10 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void decrypt_header(void *datap);
+void decrypt(unsigned char *data, uint16_t size);
 
-void decrypt_body(uint16_t body);
-
-bool valid_nonce(uint16_t nonce);
+bool valid_nonce(uint32_t nonce);
 
 #endif

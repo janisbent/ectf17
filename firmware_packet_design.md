@@ -6,24 +6,21 @@ Feel free to modify (but notify other teams)
 
 ## Header
 
-Verifies user and gives size of firmware data
+Verifies user and gives information about the upcoming package and frames
 
-16b Verification nonce
-16b Number of frames
-
-## Body
-
-Firmware data
-
-16b Version number
-16b Size of distribution message
-DISTRIBUTION MESSAGE
-16b Size of firmware
-FIRMWARE - frames should come in 256 byte blocks to align with flash page size
+ 4B Verification nonce
+ 2B Version number
+ 2B Firmware size
+ 2B Number of body frames
+ 2B Number of release message frames
+------------------------------------
+10B Total
 
 ## Frame
 
-Max length of data is 256 bytes
+Packet for data
 
-16b frame length in bytes
-DATA
+  4B Verification nonce
+256B Data
+-----------------------
+260B Total

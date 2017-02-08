@@ -52,10 +52,10 @@ void get_body(uint32_t num_frames);
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 
-const uint16_t HEADER_SIZE = 4;
-const uint16_t NONCE_POS = 0;
+const uint16_t HEADER_SIZE = 12;
 const uint16_t FRAMES_POS = 1;
 
+#define NONCE_SIZE sizeof(uint32_t)
 
 int main(void) 
 {
@@ -134,14 +134,16 @@ void readback(void)
  */
 void load_firmware(void)
 {
-    int frame_length = 0;
     unsigned char rcv = 0;
-    unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned char data[SPM_PAGESIZE + NONCE_SIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
-    uint32_t int num_frames = 0;
+    uint16_t body_frames = 0;
+    uint16_t message_frames = 0;
+    uint32_t nonce = 0;
+    
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -152,22 +154,8 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
-    // Get two bytes for the frame length.
-    rcv = UART1_getchar();
-    frame_length = (int)rcv << 8;
-    rcv = UART1_getchar();
-    frame_length += (int)rcv;
-    wdt_reset();
-
-    // Abort if invalid header length
-    while (!valid_nonce(data[NONCE_POS]))
-    {
-        __asm__ __volatile__("");
-    }
-    wdt_reset();
-
-    // Get header data
-    for (; i < HEADER_SIZE; i++) 
+    // get header data
+    for ( ; data_index < HEADER_SIZE; data_index++)
     {
         data[i] = UART1_getchar();
     }
@@ -175,30 +163,37 @@ void load_firmware(void)
 
     decrypt(data, HEADER_SIZE);
     wdt_reset();
-    
+
+    // parse decrypted header data to variables
+    for (data_index = 0; data_index < HEADER_SIZE; data_index += 2) {
+        switch (data_index) {
+                case 0 : nonce =  (uint32_t)data[data_index] << 24;
+                         nonce += (uint32_t)data[data_index + 1] << 16;
+                         break;
+                case 2 : nonce += (uint32_t)data[data_index] << 8;
+                         nonce += data[data_index + 1];
+                         break;
+                case 4 : version = (uint16_t)data[data_index] << 8;
+                         version += data[data_index + 1];
+                         break;
+                case 6 : size = (uint16_t)data[data_index] << 8;
+                         size += data[data_index + 1];
+                         break;
+                case 8 : body_frames = (uint16_t)data[data_index] << 8;
+                         body_frames += data[data_index + 1];
+                         break;
+                case 10: message_frames = (uint16_t)data[data_index] << 8;
+                         message_frames += data[data_index + 1];
+                         break;
+        }
+    }
+
     // Abort if invalid nonce
     while (!valid_nonce(data[NONCE_POS]))
     {
         __asm__ __volatile__("");
     }
     wdt_reset();
-
-    get_body(
-    /*
-	 * RECIEVE DATA 
- 	 */
-
-    // Get version.
-    rcv = UART1_getchar();
-    version = (uint16_t)rcv << 8;
-    rcv = UART1_getchar();
-    version |= (uint16_t)rcv;
-
-    // Get size.
-    rcv = UART1_getchar();
-    size = (uint16_t)rcv << 8;
-    rcv = UART1_getchar();
-    size |= (uint16_t)rcv;
 
     // Compare to old version and abort if older (note special case for version
     // 0).
@@ -224,6 +219,12 @@ void load_firmware(void)
     wdt_reset();
 
     UART1_putchar(OK); // Acknowledge the metadata.
+
+
+    /*
+     * GET BODY DATA
+     */
+
 
     /* Loop here until you can get all your characters and stuff */
     while (1)
