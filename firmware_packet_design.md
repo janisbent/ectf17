@@ -12,8 +12,9 @@ Verifies user and gives information about the upcoming package and frames
  2B Version number  
  2B Firmware size  
  2B Number of body frames  
+ 2B Release message size
  2B Number of release message frames  
-10B Total
+12B Total
 
 ## Frame
 

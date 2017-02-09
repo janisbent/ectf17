@@ -51,11 +51,15 @@ void get_body(uint32_t num_frames);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
-
-const uint16_t HEADER_SIZE = 12;
-const uint16_t FRAMES_POS = 1;
+uint16_t msg_start EEMEM = 0;
+uint16_t msg_size EEMEM = 0;
 
 #define NONCE_SIZE sizeof(uint32_t)
+
+const uint16_t HEADER_SIZE = 12;
+const uint16_t FRAME_SIZE = SPM_PAGESIZE + NONCE_SIZE;
+const uint16_t FRAMES_POS = 1;
+
 
 int main(void) 
 {
@@ -135,13 +139,15 @@ void readback(void)
 void load_firmware(void)
 {
     unsigned char rcv = 0;
-    unsigned char data[SPM_PAGESIZE + NONCE_SIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned char data[FRAME_SIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
-    uint16_t size = 0;
+    uint16_t body_size = 0;
     uint16_t body_frames = 0;
+    uint16_t message_size = 0;
     uint16_t message_frames = 0;
+    uint16_t frame_index = 0;
     uint32_t nonce = 0;
     
 
@@ -176,13 +182,16 @@ void load_firmware(void)
                 case 4 : version = (uint16_t)data[data_index] << 8;
                          version += data[data_index + 1];
                          break;
-                case 6 : size = (uint16_t)data[data_index] << 8;
-                         size += data[data_index + 1];
+                case 6 : body_size = (uint16_t)data[data_index] << 8;
+                         body_size += data[data_index + 1];
                          break;
                 case 8 : body_frames = (uint16_t)data[data_index] << 8;
                          body_frames += data[data_index + 1];
                          break;
-                case 10: message_frames = (uint16_t)data[data_index] << 8;
+                case 10: message_size = (uint16_t)data[data_index] << 8;
+                         message_size += data[data_index + 1];
+                         break;
+                case 12: message_frames = (uint16_t)data[data_index] << 8;
                          message_frames += data[data_index + 1];
                          break;
         }
@@ -194,6 +203,7 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
     wdt_reset();
+
 
     // Compare to old version and abort if older (note special case for version
     // 0).
@@ -215,57 +225,109 @@ void load_firmware(void)
 
     // Write new firmware size to EEPROM.
     wdt_reset();
-    eeprom_update_word(&fw_size, size);
+    eeprom_update_word(&fw_size, body_size);
     wdt_reset();
 
     UART1_putchar(OK); // Acknowledge the metadata.
 
-
-    /*
-     * GET BODY DATA
-     */
-
-
-    /* Loop here until you can get all your characters and stuff */
-    while (1)
+    // Get body data
+    for (frame_index = 0; frame_index < body_frames; frame_index++) 
     {
-        wdt_reset();
-
-        // Get two bytes for the length.
-        rcv = UART1_getchar();
-        frame_length = (int)rcv << 8;
-        rcv = UART1_getchar();
-        frame_length += (int)rcv;
-
-        UART0_putchar((unsigned char)rcv);
-        wdt_reset();
-
-        // Get the number of bytes specified
-        for(int i = 0; i < frame_length; ++i){
-            wdt_reset();
-            data[data_index] = UART1_getchar();
-            data_index += 1;
-        } //for
-
-        // If we filed our page buffer, program it
-        if(data_index == SPM_PAGESIZE || frame_length == 0)
+        // Recieve one body frame 
+        for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
         {
-            wdt_reset();
-            program_flash(page, data);
-            page += SPM_PAGESIZE;
-            data_index = 0;
-#if 1
-            // Write debugging messages to UART0.
-            UART0_putchar('P');
-            UART0_putchar(page>>8);
-            UART0_putchar(page);
-#endif
-            wdt_reset();
+            data[data_index] = UART1_getchar();
+            wdt_reset(); 
+        }
 
-        } // if
+        // Decrypt frame
+        decrypt(data, FRAME_SIZE);
+        wdt_reset();
+        
+        // Get 32b nonce
+        for (int i = 0; i < NONCE_SIZE; i++) {
+                nonce <<= 4;
+                nonce += data[i];
+        }
+        wdt_reset();
+
+        // Abort if invalid nonce
+        while (!valid_nonce(data[NONCE_POS]))
+        {
+            __asm__ __volatile__("");
+        }
+        wdt_reset();
+
+        // Write frame data to flash
+        program_flash(page, &(data[NONCE_SIZE]));
+        wdt_reset();
+
+        // increment page
+        page += SPM_PAGESIZE;
+        data_index = 0;
+
+#if 1
+        // Write debugging messages to UART0.
+        UART0_putchar('P');
+        UART0_putchar(page>>8);
+        UART0_putchar(page);
+        wdt_reset();
+#endif
 
         UART1_putchar(OK); // Acknowledge the frame.
-    } // while(1)
+        wdt_reset();
+    }
+
+    // update release message size and location
+    eeprom_update_word(&msg_size, message_size);
+    eeprom_update_word(&msg_start, page);
+
+    // get release message data
+    for (frame_index = 0; frame_index < message_frames; frame_index++) 
+    {
+        // Recieve one message frame 
+        for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
+        {
+            data[data_index] = UART1_getchar();
+            wdt_reset(); 
+        }
+
+        decrypt(data, FRAME_SIZE);
+        wdt_reset();
+        
+        // Get 32b nonce
+        for (int i = 0; i < NONCE_SIZE; i++) {
+                nonce <<= 4;
+                nonce += data[i];
+        }
+        wdt_reset();
+
+        // Abort if invalid nonce
+        while (!valid_nonce(data[NONCE_POS]))
+        {
+            __asm__ __volatile__("");
+        }
+        wdt_reset();
+
+        // Write frame data to flash
+        program_flash(page, &(data[NONCE_SIZE]));
+        wdt_reset();
+
+        // increment page
+        page += SPM_PAGESIZE;
+        data_index = 0;
+
+#if 1
+        // Write debugging messages to UART0.
+        UART0_putchar('P');
+        UART0_putchar(page>>8);
+        UART0_putchar(page);
+        wdt_reset();
+#endif
+
+        UART1_putchar(OK); // Acknowledge the frame.
+        wdt_reset();
+    }
 }
 
 
@@ -338,11 +400,10 @@ void program_flash(uint32_t page_address, unsigned char *data)
 
 /*
  * Reads data in a frame at a time
- * 
  */
 void get_body(uint32_t num_frames)
 {
-    h
+    
 }
 
 
