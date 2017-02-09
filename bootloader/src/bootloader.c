@@ -147,6 +147,7 @@ void load_firmware(void)
     uint16_t message_size = 0;
     uint16_t message_frames = 0;
     uint16_t frame_index = 0;
+    uint16_t nonce_fail = 3;
     uint32_t nonce = 0;
     
 
@@ -233,6 +234,7 @@ void load_firmware(void)
     // Get body data
     for (frame_index = 0; frame_index < body_frames; frame_index++) 
     {
+get_bframe:
         // Recieve one body frame 
         for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
         {
@@ -252,11 +254,20 @@ void load_firmware(void)
         nonce = 0; // Reset nonce
         wdt_reset();
 
-        // Abort if invalid nonce
-        while (!valid_nonce(nonce))
+        // Ask for resend if nonce is invalid
+        if (!valid_nonce(nonce))
         {
-            __asm__ __volatile__("");
+            UART1_putchar(ERROR);
+
+            if (--nonce_fail == 0)
+            {
+                __asm__ __volatile__("");
+            }
+
+            goto get_bframe;
         }
+        nonce_fail = 3;
+        nonce = 0;
         wdt_reset();
 
         // Write frame data to flash
@@ -286,6 +297,7 @@ void load_firmware(void)
     // get release message data
     for (frame_index = 0; frame_index < message_frames; frame_index++) 
     {
+get_mframe:
         // Recieve one message frame 
         for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
         {
@@ -303,11 +315,19 @@ void load_firmware(void)
         }
         wdt_reset();
 
-        // Abort if invalid nonce
-        while (!valid_nonce(nonce))
+        // Ask for resend if nonce is invalid
+        if (!valid_nonce(nonce))
         {
-            __asm__ __volatile__("");
+            UART1_putchar(ERROR);
+
+            if (--nonce_fail == 0)
+            {
+                __asm__ __volatile__("");
+            }
+
+            goto get_mframe;
         }
+        nonce_fail = 3;
         nonce = 0; // Reset nonce
         wdt_reset();
 
