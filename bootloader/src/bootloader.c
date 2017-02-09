@@ -38,7 +38,7 @@
 #include <avr/pgmspace.h>
 
 #include "uart.h"
-#include "decrypt.h"
+#include "crypto.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -138,7 +138,6 @@ void readback(void)
  */
 void load_firmware(void)
 {
-    unsigned char rcv = 0;
     unsigned char data[FRAME_SIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
     unsigned int page = 0;
@@ -163,7 +162,7 @@ void load_firmware(void)
     // get header data
     for ( ; data_index < HEADER_SIZE; data_index++)
     {
-        data[i] = UART1_getchar();
+        data[data_index] = UART1_getchar();
     }
     wdt_reset();
 
@@ -198,10 +197,11 @@ void load_firmware(void)
     }
 
     // Abort if invalid nonce
-    while (!valid_nonce(data[NONCE_POS]))
+    while (!valid_nonce(nonce))
     {
         __asm__ __volatile__("");
     }
+    nonce = 0; // Reset nonce
     wdt_reset();
 
 
@@ -249,10 +249,11 @@ void load_firmware(void)
                 nonce <<= 4;
                 nonce += data[i];
         }
+        nonce = 0; // Reset nonce
         wdt_reset();
 
         // Abort if invalid nonce
-        while (!valid_nonce(data[NONCE_POS]))
+        while (!valid_nonce(nonce))
         {
             __asm__ __volatile__("");
         }
@@ -303,10 +304,11 @@ void load_firmware(void)
         wdt_reset();
 
         // Abort if invalid nonce
-        while (!valid_nonce(data[NONCE_POS]))
+        while (!valid_nonce(nonce))
         {
             __asm__ __volatile__("");
         }
+        nonce = 0; // Reset nonce
         wdt_reset();
 
         // Write frame data to flash
