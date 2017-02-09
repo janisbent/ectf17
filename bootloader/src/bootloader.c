@@ -59,7 +59,7 @@ uint16_t msg_size EEMEM = 0;
 const uint16_t HEADER_SIZE = 12;
 const uint16_t FRAME_SIZE = SPM_PAGESIZE + NONCE_SIZE;
 const uint16_t FRAMES_POS = 1;
-
+const uint64_t NONCE = 0xf09f9695;
 
 int main(void) 
 {
@@ -198,7 +198,7 @@ void load_firmware(void)
     }
 
     // Abort if invalid nonce
-    while (!valid_nonce(nonce))
+    while (nonce != NONCE)
     {
         __asm__ __volatile__("");
     }
@@ -208,7 +208,7 @@ void load_firmware(void)
 
     // Compare to old version and abort if older (note special case for version
     // 0).
-    if (version != 0 && version < eeprom_read_word(&fw_version))
+    if (version != 0 && version <= eeprom_read_word(&fw_version))
     {
         UART1_putchar(ERROR); // Reject the metadata.
         // Wait for watchdog timer to reset.
@@ -255,7 +255,7 @@ get_bframe:
         wdt_reset();
 
         // Ask for resend if nonce is invalid
-        if (!valid_nonce(nonce))
+        if (nonce != NONCE) // TODO SINGLE POINT OF FAILURE
         {
             UART1_putchar(ERROR);
 
@@ -316,7 +316,7 @@ get_mframe:
         wdt_reset();
 
         // Ask for resend if nonce is invalid
-        if (!valid_nonce(nonce))
+        if (nonce != NONCE) // TODO SINGLE POINT OF FAILURE
         {
             UART1_putchar(ERROR);
 

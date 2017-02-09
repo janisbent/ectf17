@@ -7,6 +7,4 @@
 
 void decrypt(unsigned char *data, uint16_t size);
 
-bool valid_nonce(uint32_t nonce);
-
-#endif
+#endi
