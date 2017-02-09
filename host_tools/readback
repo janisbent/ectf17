@@ -30,8 +30,9 @@ def construct_request(start_addr, num_bytes):
             SECRET_PASSWORD = secret_file.read()
     except:
         pass # File not found
+    
 
-    return struct.pack('>II', start_addr, num_bytes)
+    return struct.pack('>csII', len(crypt.NONCE), crypt.NONCE, start_addr, num_bytes)
 
 
 if __name__ == '__main__':
