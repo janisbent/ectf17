@@ -18,21 +18,20 @@ import serial
 import struct
 import sys
 import argparse
+from Crypt import Crypt
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
+crypt = Crypt(os.path.abspath(os.path.dirname(__file__)))
+
 def construct_request(start_addr, num_bytes):
     # Read in secret password from file.
-    SECRET_PASSWORD = ''
-    try:
-        with open('secret_configure_outpt.txt', 'rb') as secret_file:
-            SECRET_PASSWORD = secret_file.read()
-    except:
-        pass # File not found
-    
 
-    return struct.pack('>csII', len(crypt.NONCE), crypt.NONCE, start_addr, num_bytes)
+    encryptedNonce = crypt.
+
+    return crypt.encrypt(itruct.pack('>csII', len(crypt.NONCE), crypt.NONCE, start_addr, num_bytes),
+            crypt.FACTORY_KEY, crypt.BOOTLOADER_KEY)
 
 
 if __name__ == '__main__':
