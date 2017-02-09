@@ -28,8 +28,9 @@ crypt = Crypt(os.path.abspath(os.path.dirname(__file__)))
 def construct_request(start_addr, num_bytes):
     # Read in secret password from file.
 
-    return crypt.encrypt(struct.pack('>csII', len(crypt.NONCE), crypt.NONCE, start_addr, num_bytes),
-            crypt.FACTORY_KEY, crypt.BOOTLOADER_KEY)
+    packData = struct.pack('>csII', len(crypt.NONCE), crypt.NONCE, start_addr, num_bytes)
+
+    return crypt.encrypt(packData, crypt.FACTORY_KEY, crypt.BOOTLOADER_KEY)
 
 
 if __name__ == '__main__':
