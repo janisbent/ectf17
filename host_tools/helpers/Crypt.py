@@ -8,11 +8,13 @@ for both factory and bootloader
 
 from SecretFile import SecretFile
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 class Crypt:
 
 	FACTORY_KEY = "factory_key"
 	BOOTLOADER_KEY = "bootloader_key"
+	NONCE = "U+1F595"
 
 	def __init__(self, directory):
 		self.sf = SecretFile(directory)
@@ -26,13 +28,25 @@ class Crypt:
 
 		encoded_key = self.sf.get(keyType)
 
-		if not encoded_key is None:
-			key = RSA.import_key(encoded_key)
-		else:
+		if encoded_key is None:
 			key = RSA.generate(1024)
 			self.sf.set(keyType, key.exportKey());
+		else:
+			key = RSA.import_key(encoded_key)
 			
 		return key
+
+	def encode(self, string, fromKeyType, toKeyType):
+		if self._isNotKeyType(fromKeyType) || self._isNotKeyType(toKeyType):
+			return None
+
+		privateKey = self.getKey(fromKeyType)
+		publicKey = self.getKey(toKeyType).publickey()
+
+		privateCipher = PKCS1_OAEP.new(privateKey)
+		publicCipher = PKCS1_OAEP.new(publickey)
+
+		return publicCipher.encrypt(privateCipher.encrypt(string));
 
 
 	def _isNotKeyType(self, keyType):
