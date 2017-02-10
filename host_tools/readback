@@ -29,7 +29,7 @@ def construct_request(start_addr, num_bytes):
 
     packData = struct.pack('>II', start_addr, num_bytes)
 
-    return crypt.encrypt(packData, crypt.FACTORY_KEY, crypt.BOOTLOADER_KEY)
+    return crypt.encrypt(packData)
 
 
 if __name__ == '__main__':
