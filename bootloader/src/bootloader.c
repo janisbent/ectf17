@@ -31,6 +31,7 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <util/delay.h>
 #include <avr/boot.h>
 #include <avr/wdt.h>
@@ -42,24 +43,35 @@
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
+#define NONCE_SIZE sizeof(uint64_t)
+#define FRAME_SIZE 512
+
+typedef struct Header_data {
+    uint64_t nonce;
+    uint16_t version;
+    uint16_t body_size;
+    uint16_t message_size;
+    bool     passed;
+} Header_data;
 
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
-void get_body(uint32_t num_frames);
+void read_frame(unsigned char data[]);
+Header_data check_header(void);
+Header_data read_header(void);
+void store_body(Header_data h);
+bool nonce_check(unsigned char data[]);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 uint16_t msg_start EEMEM = 0;
 uint16_t msg_size EEMEM = 0;
 
-#define NONCE_SIZE sizeof(uint32_t)
+const uint16_t HEADER_SIZE = 14;
+const uint64_t NONCE = 0x552B46353935; // U+1F595
 
-const uint16_t HEADER_SIZE = 12;
-const uint16_t FRAME_SIZE = SPM_PAGESIZE + NONCE_SIZE;
-const uint16_t FRAMES_POS = 1;
-const uint64_t NONCE = 0xf09f9695;
 
 int main(void) 
 {
@@ -138,21 +150,7 @@ void readback(void)
  */
 void load_firmware(void)
 {
-    unsigned char data[FRAME_SIZE]; // SPM_PAGESIZE is the size of a page.
-    unsigned int data_index = 0;
-    unsigned int page = 0;
-    uint16_t version = 0;
-    uint16_t body_size = 0;
-    uint16_t body_frames = 0;
-    uint16_t message_size = 0;
-    uint16_t message_frames = 0;
-    uint16_t frame_index = 0;
-    uint16_t nonce_fail = 3;
-    uint32_t nonce = 0;
-    
-
-    // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+    Header_data h;
 
     /* Wait for data */
     while(!UART1_data_available())
@@ -160,196 +158,23 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
-    // get header data
-    for ( ; data_index < HEADER_SIZE; data_index++)
+    // Start the Watchdog Timer
+    wdt_enable(WDTO_2S);
+
+    h.passed = false;
+    do
     {
-        data[data_index] = UART1_getchar();
-    }
+        h = check_header();
+    } while (!h.passed);
+
+    // Write new firmware sizes to EEPROM.
+    wdt_reset();
+    eeprom_update_word(&fw_size, h.body_size);
+    eeprom_update_word(&msg_size, h.message_size);
     wdt_reset();
 
-    decrypt(data, HEADER_SIZE);
-    wdt_reset();
-
-    // parse decrypted header data to variables
-    for (data_index = 0; data_index < HEADER_SIZE; data_index += 2) {
-        switch (data_index) {
-                case 0 : nonce =  (uint32_t)data[data_index] << 24;
-                         nonce += (uint32_t)data[data_index + 1] << 16;
-                         break;
-                case 2 : nonce += (uint32_t)data[data_index] << 8;
-                         nonce += data[data_index + 1];
-                         break;
-                case 4 : version = (uint16_t)data[data_index] << 8;
-                         version += data[data_index + 1];
-                         break;
-                case 6 : body_size = (uint16_t)data[data_index] << 8;
-                         body_size += data[data_index + 1];
-                         break;
-                case 8 : body_frames = (uint16_t)data[data_index] << 8;
-                         body_frames += data[data_index + 1];
-                         break;
-                case 10: message_size = (uint16_t)data[data_index] << 8;
-                         message_size += data[data_index + 1];
-                         break;
-                case 12: message_frames = (uint16_t)data[data_index] << 8;
-                         message_frames += data[data_index + 1];
-                         break;
-        }
-    }
-
-    // Abort if invalid nonce
-    while (nonce != NONCE)
-    {
-        __asm__ __volatile__("");
-    }
-    nonce = 0; // Reset nonce
-    wdt_reset();
-
-
-    // Compare to old version and abort if older (note special case for version
-    // 0).
-    if (version != 0 && version <= eeprom_read_word(&fw_version))
-    {
-        UART1_putchar(ERROR); // Reject the metadata.
-        // Wait for watchdog timer to reset.
-        while(1)
-        {
-            __asm__ __volatile__("");
-        }
-    }
-    else if(version != 0)
-    {
-        // Update version number in EEPROM.
-        wdt_reset();
-        eeprom_update_word(&fw_version, version);
-    }
-
-    // Write new firmware size to EEPROM.
-    wdt_reset();
-    eeprom_update_word(&fw_size, body_size);
-    wdt_reset();
-
-    UART1_putchar(OK); // Acknowledge the metadata.
-
-    // Get body data
-    for (frame_index = 0; frame_index < body_frames; frame_index++) 
-    {
-get_bframe:
-        // Recieve one body frame 
-        for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
-        {
-            data[data_index] = UART1_getchar();
-            wdt_reset(); 
-        }
-
-        // Decrypt frame
-        decrypt(data, FRAME_SIZE);
-        wdt_reset();
-        
-        // Get 32b nonce
-        for (int i = 0; i < NONCE_SIZE; i++) {
-                nonce <<= 4;
-                nonce += data[i];
-        }
-        nonce = 0; // Reset nonce
-        wdt_reset();
-
-        // Ask for resend if nonce is invalid
-        if (nonce != NONCE) // TODO SINGLE POINT OF FAILURE
-        {
-            UART1_putchar(ERROR);
-
-            if (--nonce_fail == 0)
-            {
-                __asm__ __volatile__("");
-            }
-
-            goto get_bframe;
-        }
-        nonce_fail = 3;
-        nonce = 0;
-        wdt_reset();
-
-        // Write frame data to flash
-        program_flash(page, &(data[NONCE_SIZE]));
-        wdt_reset();
-
-        // increment page
-        page += SPM_PAGESIZE;
-        data_index = 0;
-
-#if 1
-        // Write debugging messages to UART0.
-        UART0_putchar('P');
-        UART0_putchar(page>>8);
-        UART0_putchar(page);
-        wdt_reset();
-#endif
-
-        UART1_putchar(OK); // Acknowledge the frame.
-        wdt_reset();
-    }
-
-    // update release message size and location
-    eeprom_update_word(&msg_size, message_size);
-    eeprom_update_word(&msg_start, page);
-
-    // get release message data
-    for (frame_index = 0; frame_index < message_frames; frame_index++) 
-    {
-get_mframe:
-        // Recieve one message frame 
-        for (data_index = 0; data_index < FRAME_SIZE; data_index++) 
-        {
-            data[data_index] = UART1_getchar();
-            wdt_reset(); 
-        }
-
-        decrypt(data, FRAME_SIZE);
-        wdt_reset();
-        
-        // Get 32b nonce
-        for (int i = 0; i < NONCE_SIZE; i++) {
-                nonce <<= 4;
-                nonce += data[i];
-        }
-        wdt_reset();
-
-        // Ask for resend if nonce is invalid
-        if (nonce != NONCE) // TODO SINGLE POINT OF FAILURE
-        {
-            UART1_putchar(ERROR);
-
-            if (--nonce_fail == 0)
-            {
-                __asm__ __volatile__("");
-            }
-
-            goto get_mframe;
-        }
-        nonce_fail = 3;
-        nonce = 0; // Reset nonce
-        wdt_reset();
-
-        // Write frame data to flash
-        program_flash(page, &(data[NONCE_SIZE]));
-        wdt_reset();
-
-        // increment page
-        page += SPM_PAGESIZE;
-        data_index = 0;
-
-#if 1
-        // Write debugging messages to UART0.
-        UART0_putchar('P');
-        UART0_putchar(page>>8);
-        UART0_putchar(page);
-        wdt_reset();
-#endif
-
-        UART1_putchar(OK); // Acknowledge the frame.
-        wdt_reset();
-    }
+    // Get and store body data
+    store_body(h);
 }
 
 
@@ -420,13 +245,179 @@ void program_flash(uint32_t page_address, unsigned char *data)
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
 
-/*
- * Reads data in a frame at a time
- */
-void get_body(uint32_t num_frames)
+void read_frame(unsigned char data[])
 {
-    
+    for (unsigned int data_index; data_index < FRAME_SIZE; data_index++)
+    {
+        data[data_index] = UART1_getchar();
+        wdt_reset();
+    }
 }
 
+Header_data check_header(void)
+{
+    Header_data h;
+    
+    // get header data
+    h.nonce = 0;
+    h = read_header();
+    wdt_reset();
 
+    // Abort if invalid nonce
+    while (h.nonce != NONCE)
+    {
+        __asm__ __volatile__("");
+    }
+    wdt_reset();
 
+    // Compare to old version and abort if older (note special case for version
+    // 0).
+    if (h.version == 0 || h.version < eeprom_read_word(&fw_version))
+    {
+        goto version_pass;
+    }
+
+    // Reject the metadata
+    UART1_putchar(ERROR);
+
+    // Wait for watchdog timer to reset.
+    while (1)
+    {
+        __asm__ __volatile__("");
+    }
+   
+version_pass:
+    if (h.version != 0)
+    {
+        // Update version number in EEPROM.
+        wdt_reset();
+        eeprom_update_word(&fw_version, version);
+    }
+
+    UART1_putchar(OK); // Acknowledge the metadata.
+
+    return h;
+}
+
+Header_data read_header(void)
+{
+    unsigned char data[FRAME_SIZE];
+    Header_data h;
+
+    read_frame(data);
+    decrypt_rsa(data);
+
+    // parse decrypted header data to variables
+    for (data_index = 0; data_index < HEADER_SIZE; data_index += 2) {
+        switch (data_index) {
+            case 0 : h.nonce =  (uint64_t)data[data_index] << 56;
+                     h.nonce += (uint64_t)data[data_index + 1] << 48;
+                     break;
+            case 2 : h.nonce += (uint64_t)data[data_index] << 40;
+                     h.nonce += (uint64_t)data[data_index + 1] << 32;
+                     break;
+            case 4 : h.nonce =  (uint64_t)data[data_index] << 24;
+                     h.nonce += (uint64_t)data[data_index + 1] << 16;
+                     break;
+            case 6 : h.nonce += (uint64_t)data[data_index] << 8;
+                     h.nonce += data[data_index + 1];
+                     break;
+            case 8 : h.version = (uint16_t)data[data_index] << 8;
+                     h.version += data[data_index + 1];
+                     break;
+            case 10: h.body_size = (uint16_t)data[data_index] << 8;
+                     h.body_size += data[data_index + 1];
+                     break;
+            case 12: h.message_size = (uint16_t)data[data_index] << 8;
+                     h.message_size += data[data_index + 1];
+                     break;
+        }
+        wdt_reset();
+    }
+}
+
+void read_body(Header_data h)
+{
+    unsigned char data[FRAME_SIZE];
+    unsigned int page = 0;
+    bool on_message = false;
+    bool passed = false;
+
+    for ( ; page < h.body_size + h.message_size; page += SPM_PAGESIZE)
+    {
+retry_frame:
+        // Recieve one body frame 
+        read_frame(data);
+        decrypt_rsa(data);
+        wdt_reset();
+        
+        while (!passed) 
+        {
+            passed = nonce_check(data);
+
+            if (!passed)
+            {
+                goto retry_frame;
+            }
+        }
+
+        if (page >= h.body_size && !on_message)
+        {
+            on_message = true;
+            eeprom_update_word(&msg_start, page);
+        }
+
+        // Write frame data to flash
+        program_flash(page, data + NONCE_SIZE);
+        wdt_reset();
+
+#if 1
+        // Write debugging messages to UART0.
+        UART0_putchar('P');
+        UART0_putchar(page>>8);
+        UART0_putchar(page);
+        wdt_reset();
+#endif
+
+        UART1_putchar(OK); // Acknowledge the frame.
+        wdt_reset();
+    }
+
+}
+
+bool nonce_check(unsigned char data[])
+{
+    uint64_t nonce = 0;
+    static uint16_t nonce_fail = 3;
+        
+    // Get nonce
+    for (int i = 0; i < NONCE_SIZE; i++) {
+        nonce <<= 4;
+        nonce += data[i];
+    }
+    wdt_reset();
+
+    // Skip failure if nonce passes
+    if (nonce == NONCE)
+    {
+        goto nonce_pass;
+    }
+
+    UART1_putchar(ERROR);
+
+    // Ask for resend if attempts remain
+    if (--nonce_fail > 0)
+    {
+        goto retry_frame;
+    }
+      
+    // Abort if invalid nonce
+    while (nonce != NONCE)
+    {
+        __asm__ __volatile__("");
+    }
+
+nonce_pass:
+    nonce_fail = 3; // Reset nonce fail attempts
+    wdt_reset();
+}

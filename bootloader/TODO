@@ -1,0 +1,9 @@
+Loader:
+    Check for corruption?
+
+Boot:
+    Decrypt firmware    
+
+Readback:
+    Verify RSA
+    Decrypt firmware
