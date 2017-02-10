@@ -67,7 +67,6 @@ bool nonce_check(unsigned char data[]);
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 uint16_t msg_start EEMEM = 0;
-uint16_t msg_size EEMEM = 0;
 
 const uint16_t HEADER_SIZE = 14;
 const uint64_t NONCE = 0x552B46353935; // U+1F595
@@ -105,9 +104,9 @@ int main(void)
     }
 } // main
 
-/*
- * Interface with host readback tool.
- */
+/***************************************************
+ ******************** READBACK *********************
+ ***************************************************/
 void readback(void)
 {
     // Start the Watchdog Timer
@@ -145,9 +144,47 @@ void readback(void)
 }
 
 
-/*
- * Load the firmware into flash.
- */
+/***************************************************
+ ***************** BOOT FIRMWARE *******************
+ ***************************************************/
+void boot_firmware(void)
+{
+    // Start the Watchdog Timer.
+    wdt_enable(WDTO_2S);
+
+    // Write out the release message.
+    uint8_t cur_byte;
+    uint32_t message_addr = (uint32_t)eeprom_read_word(&msg_start);
+
+    // Reset if firmware size is 0 (indicates no firmware is loaded).
+    if(message_addr == 0)
+    {
+        // Wait for watchdog timer to reset.
+        while(1) __asm__ __volatile__("");
+    }
+
+    wdt_reset();
+
+    // Write out release message to UART0.
+    do
+    {
+        cur_byte = pgm_read_byte_far(message_addr);
+        UART0_putchar(cur_byte);
+        ++message_addr;
+    } while (cur_byte != 0);
+
+    // Stop the Watchdog Timer.
+    wdt_reset();
+    wdt_disable();
+
+    /* Make the leap of faith. */
+    asm ("jmp 0000");
+}
+
+
+/***************************************************
+ ***************** LOAD FIRMWARE *******************
+ ***************************************************/
 void load_firmware(void)
 {
     Header_data h;
@@ -170,49 +207,10 @@ void load_firmware(void)
     // Write new firmware sizes to EEPROM.
     wdt_reset();
     eeprom_update_word(&fw_size, h.body_size);
-    eeprom_update_word(&msg_size, h.message_size);
     wdt_reset();
 
     // Get and store body data
     store_body(h);
-}
-
-
-/*
- * Ensure the firmware is loaded correctly and boot it up.
- */
-void boot_firmware(void)
-{
-    // Start the Watchdog Timer.
-    wdt_enable(WDTO_2S);
-
-    // Write out the release message.
-    uint8_t cur_byte;
-    uint32_t addr = (uint32_t)eeprom_read_word(&fw_size);
-
-    // Reset if firmware size is 0 (indicates no firmware is loaded).
-    if(addr == 0)
-    {
-        // Wait for watchdog timer to reset.
-        while(1) __asm__ __volatile__("");
-    }
-
-    wdt_reset();
-
-    // Write out release message to UART0.
-    do
-    {
-        cur_byte = pgm_read_byte_far(addr);
-        UART0_putchar(cur_byte);
-        ++addr;
-    } while (cur_byte != 0);
-
-    // Stop the Watchdog Timer.
-    wdt_reset();
-    wdt_disable();
-
-    /* Make the leap of faith. */
-    asm ("jmp 0000");
 }
 
 
@@ -291,7 +289,7 @@ version_pass:
     {
         // Update version number in EEPROM.
         wdt_reset();
-        eeprom_update_word(&fw_version, version);
+        eeprom_update_word(&fw_version, h.version);
     }
 
     UART1_putchar(OK); // Acknowledge the metadata.
@@ -308,7 +306,7 @@ Header_data read_header(void)
     decrypt_rsa(data);
 
     // parse decrypted header data to variables
-    for (data_index = 0; data_index < HEADER_SIZE; data_index += 2) {
+    for (unsigned int data_index = 0; data_index < HEADER_SIZE; data_index += 2) {
         switch (data_index) {
             case 0 : h.nonce =  (uint64_t)data[data_index] << 56;
                      h.nonce += (uint64_t)data[data_index + 1] << 48;
@@ -400,7 +398,7 @@ bool nonce_check(unsigned char data[])
     // Skip failure if nonce passes
     if (nonce == NONCE)
     {
-        goto nonce_pass;
+        return false;
     }
 
     UART1_putchar(ERROR);
@@ -408,7 +406,7 @@ bool nonce_check(unsigned char data[])
     // Ask for resend if attempts remain
     if (--nonce_fail > 0)
     {
-        goto retry_frame;
+        return false;
     }
       
     // Abort if invalid nonce
@@ -420,4 +418,6 @@ bool nonce_check(unsigned char data[])
 nonce_pass:
     nonce_fail = 3; // Reset nonce fail attempts
     wdt_reset();
+
+    return true;
 }
