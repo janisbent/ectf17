@@ -7,6 +7,8 @@ for both factory and bootloader
 """
 
 from SecretFile import SecretFile
+from Crypto.Hash import SHA256
+from Crypto.Signature import pkcs1_15
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
@@ -14,7 +16,6 @@ class Crypt:
 
 	FACTORY_KEY = "factory_key"
 	BOOTLOADER_KEY = "bootloader_key"
-	NONCE = "U+1F595"
 
 	def __init__(self, directory):
 		self.sf = SecretFile(directory)
@@ -29,25 +30,42 @@ class Crypt:
 		encoded_key = self.sf.get(keyType)
 
 		if encoded_key is None:
-			key = RSA.generate(1024)
+			key = RSA.generate(4096)
 			self.sf.set(keyType, key.exportKey());
 		else:
 			key = RSA.import_key(encoded_key)
 			
 		return key
 
-	def encode(self, string, fromKeyType, toKeyType):
-		if self._isNotKeyType(fromKeyType) || self._isNotKeyType(toKeyType):
-			return None
+	def getKeys(self):
+		return (self.getKey(self.FACTORY_KEY), self.getKey(self.BOOTLOADER_KEY))
 
-		privateKey = self.getKey(fromKeyType)
-		publicKey = self.getKey(toKeyType).publickey()
+	def encode(self, msg):
+		factoryKey, bootloaderKey = self.getKeys();
 
-		privateCipher = PKCS1_OAEP.new(privateKey)
-		publicCipher = PKCS1_OAEP.new(publickey)
+		cipher = PKCS1_OAEP.new(bootloaderKey.publickey())
+		signer = pkcs1_15.new(factoryKey)
 
-		return publicCipher.encrypt(privateCipher.encrypt(string));
+		cryptMsg = cipher.encrypt(msg)
+		msgHash = SHA256.new(cryptMsg)
+
+		return signer.sign(msgHash) + cryptMsg;
+
+	def decode(self, msg):
+		factoryKey, bootloaderKey = self.getKeys();
+
+		msgHash = msg[:512]
+		cryptMsg = msg[512:]
+
+		cryptMsgHash = SHA256.new(cryptMsg)	
+
+		try:
+			pkcs1_15.new(factoryKey.publickey()).verify(cryptMsgHash, msgHash)
+			cipher = PKCS1_OAEP.new(bootloaderKey)
+			return cipher.decrypt(cryptMsg)
+		except (ValueError, TypeError):
+			print "The signature is not valid."
 
 
 	def _isNotKeyType(self, keyType):
-		return keyType != self.FACTORY_KEY and keyType != self.BOOTLOADER_KEY
+		return keyType != self.FACTORY_KEY and keyType != self.BOOTLOADER_KEY`
