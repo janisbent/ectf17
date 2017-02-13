@@ -5,14 +5,17 @@
 #include <stdint.h>
 
 /*
- * Decrypts a 512B frame encrypted with RSA into 
- * an 8B nonce and a 256B page
+ * Takes a 512B frame in i_data, decrypts and verifies authenticity, and 
+ * adds the decrypted data to the buffer starting at buffer[buffer_start].
+ *
+ * Returns the size of the data added to buffer or -1 on failed verification.
  */
-void decrypt_rsa(unsigned char *data);
+int decrypt_frame(unsigned char *frame, unsigned char *buffer, 
+                  unsigned int buffer_start);
 
 /*
- * Decrypts a 265B page encrypted with AES
+ * Decrypts a 265B page in place
  */
-void decrypt_aes(unsigned char *data);
+void decrypt_page(unsigned char *data);
 
 #endif
