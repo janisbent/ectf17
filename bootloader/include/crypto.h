@@ -2,7 +2,7 @@
 #ifndef DECRYPT_H
 #define DECRYPT_H
 
-#include <stdint.h>
+#include <stdbool.h>
 
 /*
  * Takes a 512B frame in i_data, decrypts and verifies authenticity, and 
@@ -17,5 +17,6 @@ int decrypt_frame(unsigned char *frame, unsigned char *buffer,
  * Decrypts a 265B page in place
  */
 void decrypt_page(unsigned char *data);
+
 
 #endif
