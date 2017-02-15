@@ -3,6 +3,8 @@
 #define DECRYPT_H
 
 #include <stdbool.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
 
 /*
  * Takes a 1024B frame in i_data, decrypts and verifies authenticity, and 
