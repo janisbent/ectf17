@@ -47,7 +47,7 @@ class Crypt:
 		signer = pkcs1_15.new(factoryKey)
 
 		cryptMsg = cipher.encrypt(msg)
-		msgHash = SHA256.new(cryptMsg)
+		msgHash = SHA256.new(msg)
 
 		return signer.sign(msgHash) + cryptMsg;
 
@@ -57,12 +57,14 @@ class Crypt:
 		msgHash = msg[:512]
 		cryptMsg = msg[512:]
 
-		cryptMsgHash = SHA256.new(cryptMsg)	
-
 		try:
-			pkcs1_15.new(factoryKey.publickey()).verify(cryptMsgHash, msgHash)
 			cipher = PKCS1_OAEP.new(bootloaderKey)
-			return cipher.decrypt(cryptMsg)
+			decryptedMsg = cipher.decrypt(cryptMsg)
+
+			decryptedMsgHash = SHA256.new(decryptedMsg)	
+			pkcs1_15.new(factoryKey.publickey()).verify(decryptedMsgHash, msgHash)
+			
+			return decryptedMsg
 		except (ValueError, TypeError):
 			print "The signature is not valid."
 
