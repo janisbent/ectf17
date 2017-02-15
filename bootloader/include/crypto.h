@@ -2,17 +2,24 @@
 #ifndef DECRYPT_H
 #define DECRYPT_H
 
-#include <stdint.h>
+#include <stdbool.h>
 
 /*
- * Decrypts a 512B frame encrypted with RSA into 
- * an 8B nonce and a 256B page
+ * Takes a 1024B frame in i_data, decrypts and verifies authenticity, and 
+ * adds the decrypted data to the buffer starting at buffer[buffer_start]
+ *
+ * Returns the size of the data added to buffer or -1 on failed verification
  */
-void decrypt_rsa(unsigned char *data);
+int decrypt_frame(unsigned char *frame, unsigned char *buffer, 
+                  unsigned int buffer_start);
 
 /*
- * Decrypts a 265B page encrypted with AES
+ * Accepts data of size bytes in buffer (must be under 470B) and places
+ * encrypted 512B frame into frame
  */
-void decrypt_aes(unsigned char *data);
+void encrypt_frame(unsigned char *frame, unsigned char *buffer,
+                   unsigned int size);
+
+
 
 #endif
