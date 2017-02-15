@@ -45,7 +45,7 @@
 #define ERROR ((unsigned char)0x01)
 #define ABORT ((unsigned char)0xff)
 #define HEADER_SIZE sizeof(Header_data)
-#define FRAME_SIZE 512
+#define FRAME_SIZE 1024
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
