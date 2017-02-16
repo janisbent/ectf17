@@ -16,7 +16,7 @@ from helpers.Crypt import Crypt
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-def make_bootloader(password=None):
+def make_bootloader():
     """
     Build the bootloader from source.
 
@@ -53,19 +53,6 @@ def copy_artifacts():
     shutil.copy(os.path.join(src_dir, 'flash.hex'), dst_dir)
     shutil.copy(os.path.join(src_dir, 'eeprom.hex'), dst_dir)
 
-def generate_readback_password():
-    """
-    Generate secret password for readback tool and store to secret file.
-    """
-    # Generate 16 character random password.
-    pw = ''.join(chr(random.randint(0, 255)) for i in range(8)).encode('hex')
-
-    # Write password to secret file.
-    with open('secret_build_output.txt', 'wb+') as secret_build_output:
-        secret_build_output.write(pw)
-
-    return pw
-
 def write_fuse_file(fuse_name, fuse_value):
     hex_file = IntelHex()
     hex_file[0] = fuse_value
@@ -74,8 +61,7 @@ def write_fuse_file(fuse_name, fuse_value):
         hex_file.tofile(outfile, format='hex')
 
 if __name__ == '__main__':
-    password = generate_readback_password()
-    if not make_bootloader(password=password):
+    if not make_bootloader():
         print "ERROR: Failed to compile bootloader."
         sys.exit(1)
     copy_artifacts()
