@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from intelhex import IntelHex
+from helpers.Crypt import Crypt
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -26,11 +27,14 @@ def make_bootloader(password=None):
     os.chdir('../bootloader')
 
     subprocess.call('make clean', shell=True)
+
+    crypt = Crypt(FILE_DIR)
+
+    publicKey = crypt.getKey(crypt.FACTORY_KEY).publickey().exportKey().replace("\n", '').replace(" ", "\ ")
+    privateKey = crypt.getKey(crypt.BOOTLOADER_KEY).exportKey().replace("\n", '').replace(" ", "\ ")
+
     # Call make in subprocess to build bootloader.
-    if password is not None:
-        status = subprocess.call('make PASSWORD="%s"' % password, shell=True)
-    else:
-        status = subprocess.call('make')
+    status = subprocess.call('make PUBLIC_KEY="' + publicKey + '" PRIVATE_KEY="' + privateKey + '"', shell=True)
 
     # Return True if make returned 0, otherwise return False.
     return (status == 0)

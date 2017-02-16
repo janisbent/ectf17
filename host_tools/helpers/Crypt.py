@@ -70,4 +70,4 @@ class Crypt:
 
 
 	def _isNotKeyType(self, keyType):
-		return keyType != self.FACTORY_KEY and keyType != self.BOOTLOADER_KEY`
+		return keyType != self.FACTORY_KEY and keyType != self.BOOTLOADER_KEY

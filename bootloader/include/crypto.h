@@ -4,6 +4,8 @@
 
 #include <stdbool.h>
 #include <avr/pgmspace.h>
+#include <avr/boot.h>
+#include <avr/interrupt.h>
 #include <avr/wdt.h>
 
 /*

@@ -3,16 +3,13 @@ MCU = atmega1284p
 F_CPU = 20000000
 BAUD = 115200
 
-# Secret password default value.
-PASSWORD ?= password
-
 # Tool aliases.
 CC = avr-gcc
 STRIP  = avr-strip
 OBJCOPY = avr-objcopy
 
 # Compiler configurations.
-CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
+CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DPUBLIC_KEY=\"${PUBLIC_KEY}\" -DPRIVATE_KEY=\"${PRIVATE_KEY}\"
 CLINKER = -nostartfiles -Wl,--section-start=.text=0x1F000
 CWARN =  -Wall
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
@@ -38,8 +35,11 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o
+crypto.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/crypto.c
+
+bootloader.elf: uart.o sys_startup.o bootloader.o crypto.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o crypto.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf
