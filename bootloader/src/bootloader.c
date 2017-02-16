@@ -61,13 +61,14 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
+void write_frame(unsigned char frame[]);
+void read_mem(uint32_t start_addr, uint32_t size);
 unsigned int read_frame(unsigned char buffer[], unsigned int buffer_index,
                         int retries);
 Header_data check_header(void);
 Header_data read_header(void);
 void store_body(Header_data h);
 void advance_buffer(unsigned char buffer[], unsigned int buffer_index);
-
 
 int main(void) 
 {
@@ -147,8 +148,8 @@ void boot_firmware(void)
 
 void readback(void)
 {
-    unsigned char buffer[FRAME_SIZE];
-    unsigned int buffer_index = 0;
+    unsigned char frame[FRAME_SIZE];
+    unsigned int frame_index = 0;
     uint32_t start_addr = 0;
     uint32_t size = 0;
 
@@ -156,40 +157,67 @@ void readback(void)
     wdt_enable(WDTO_2S);
 
     // Read frame from UART1
-    read_frame(buffer, buffer_index, 0);
+    read_frame(frame, frame_index, 0);
 
     // Read in start address (4 bytes).
-    start_addr  = ((uint32_t)buffer[buffer_index++]) << 24;
-    start_addr |= ((uint32_t)buffer[buffer_index++]) << 16;
-    start_addr |= ((uint32_t)buffer[buffer_index++]) << 8;
-    start_addr |= ((uint32_t)buffer[buffer_index++]);
-
+    start_addr  = ((uint32_t)frame[frame_index++]) << 24;
+    start_addr |= ((uint32_t)frame[frame_index++]) << 16;
+    start_addr |= ((uint32_t)frame[frame_index++]) << 8;
+    start_addr |= ((uint32_t)frame[frame_index++]);
     wdt_reset();
 
     // Read in size (4 bytes).
-    size  = ((uint32_t)buffer[buffer_index++]) << 24;
-    size |= ((uint32_t)buffer[buffer_index++]) << 16;
-    size |= ((uint32_t)buffer[buffer_index++]) << 8;
-    size |= ((uint32_t)buffer[buffer_index++]);
-
+    size  = ((uint32_t)frame[frame_index++]) << 24;
+    size |= ((uint32_t)frame[frame_index++]) << 16;
+    size |= ((uint32_t)frame[frame_index++]) << 8;
+    size |= ((uint32_t)frame[frame_index++]);
     wdt_reset();
 
     // Read the memory out to UART1.
-    for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
-    {
-        // Read a byte from flash.
-        unsigned char byte = pgm_read_byte_far(addr);
-        wdt_reset();
-
-        // Write the byte to UART1.
-        UART1_putchar(byte);
-        wdt_reset();
-    }
 
     // Wait for watchdog timer to reset.
     while(1) __asm__ __volatile__("");
 }
 
+void read_mem(uint32_t start_addr, uint32_t size)
+{
+    unsigned char frame[FRAME_SIZE];
+    unsigned char buffer[SPM_PAGESIZE];
+    unsigned int buffer_index = 0;
+    uint32_t addr = start_addr;
+
+    while (addr < start_addr + size)
+    {
+        // Fill page from memory
+        for (buffer_index = 0; buffer_index < SPM_PAGESIZE 
+                               && addr < start_addr + size; addr++)
+        {
+            buffer[buffer_index++] = pgm_read_byte_far(addr);
+            wdt_reset();
+        }
+
+        // Encrypt page of data
+        encrypt_frame(frame, buffer, buffer_index);
+        wdt_reset();
+
+        // Write frame to UART1
+        write_frame(frame);
+        wdt_reset();
+    }
+}
+
+void write_frame(unsigned char frame[])
+{
+    do
+    {
+        // write frame to UART1
+        for (int frame_index = 0; frame_index < FRAME_SIZE; frame_index++)
+        {
+            UART1_putchar(frame[frame_index]);
+        }
+        wdt_reset();
+    } while (UART1_getchar() == ERROR); // resend frame if rejected
+}
 
 /***************************************************
  ***************** LOAD FIRMWARE *******************
