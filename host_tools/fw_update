@@ -26,7 +26,6 @@ import time
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from Crypt import MAX_DATA_SIZE
 from math import ceil
 
 RESP_OK = b'\x00'
@@ -34,6 +33,7 @@ RESP_ER = b'\x01'
 RESP_AB = b'\xff'
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
+FRAME_SIZE = 512
  
 def readFile(fileName):
     with open(fileName, 'rb') as file:
@@ -67,10 +67,10 @@ if __name__ == '__main__':
     while ser.read(1) != 'U':
         pass
 
-    numFrames = int(ceil(len(data) / float(MAX_DATA_SIZE)))
+    numFrames = int(ceil(len(data) / float(FRAME_SIZE)))
 
     for i in range(numFrames):
-        frame = data[i * MAX_DATA_SIZE : (i + 1) * MAX_DATA_SIZE]
+        frame = data[i * FRAME_SIZE : (i + 1) * FRAME_SIZE]
 
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(i, len(frame)))
