@@ -30,7 +30,8 @@ from cStringIO import StringIO
 from intelhex import IntelHex
 
 RESP_OK = b'\x00'
-
+RESP_ER = b'\x01'
+RESP_AB = b'\xff'
 
 class Firmware(object):
     """

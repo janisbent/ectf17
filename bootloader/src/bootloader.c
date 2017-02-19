@@ -157,7 +157,7 @@ void readback(void)
     wdt_enable(WDTO_2S);
 
     // Read frame from UART1
-    read_frame(frame, frame_index, 0);
+    while (read_frame(frame, frame_index, 0) < 0) ;
 
     // Read in start address (4 bytes).
     start_addr  = ((uint32_t)frame[frame_index++]) << 24;
@@ -283,7 +283,7 @@ void program_flash(uint32_t page_address, unsigned char *data)
 }
 
 /*
- * Reads one 512B frame of data from UART1, retrying up toretries times 
+ * Reads one 512B frame of data from UART1, retrying up to retries times 
  * if verification fails and aborting after.
  *
  * Fills data into the buffer starting at buffer[buffer_index]
