@@ -25,9 +25,12 @@ int decrypt_frame(unsigned char *frame, unsigned char *buffer,
 	
 }
 
-void encrypt_frame(unsigned char *frame, unsigned char *buffer,
+int encrypt_frame(unsigned char *frame, unsigned char *buffer,
                    unsigned int size) {
-	return;
+
+	RSA *public = createRSA(publ_key, true);
+    encrypt_size = RSA_public_encrypt(size, frame, buffer, public, padding);
+    return encrypt_size;
 }
 
 // http://etutorials.org/Programming/secure+programming/Chapter+7.+Public+Key+Cryptography/7.13+Verifying+Signed+Data+Using+an+RSA+Public+Key/

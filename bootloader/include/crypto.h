@@ -31,9 +31,9 @@ int decrypt_frame(unsigned char *frame, unsigned char *buffer,
 
 /*
  * Accepts data of size bytes in buffer (must be under 214B) and places
- * encrypted 256B frame into frame
+ * encrypted 256B frame into frame. Returns size of encrypted data.
  */
-void encrypt_frame(unsigned char *frame, unsigned char *buffer,
+int encrypt_frame(unsigned char *frame, unsigned char *buffer,
                    unsigned int size);
 
 
