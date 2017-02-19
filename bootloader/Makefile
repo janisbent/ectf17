@@ -19,7 +19,7 @@ COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
 CFLAGS  = $(CDEFS) $(CLINKER) $(CWARN) $(COPT)
 
 # Include file paths.
-INCLUDES = -I./include
+INCLUDES = -I./include #-I/usr/include/openssl
 
 # Run clean even when all files have been removed.
 .PHONY: clean
@@ -39,6 +39,9 @@ bootloader.o:
 crypto.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/crypto.c
 
+yes.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c tests/yes.c
+
 bootloader.elf: uart.o sys_startup.o bootloader.o crypto.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o crypto.o
 
@@ -54,3 +57,7 @@ eeprom.hex: strip
 clean:
 	$(RM) -v *.hex *.o *.elf $(MAIN)
 
+yes: uart.o yes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o yes.elf uart.o yes.o
+	$(STRIP) yes.elf -o yes.elf
+	$(OBJCOPY) -O ihex yes.elf yes.hex
