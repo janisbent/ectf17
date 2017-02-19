@@ -8,6 +8,7 @@ import shutil
 import struct
 import json
 import zlib
+import os
 
 from cStringIO import StringIO
 from intelhex import IntelHex

@@ -26,10 +26,10 @@ def generate_secret_file():
 def configure_bootloader(serial_port):
 	print('Waiting for bootloader to respond...')
 
-	while serial_port.read() not in {'U', 'R', 'B'}
-    	pass
+	while serial_port.read() not in {'U', 'R', 'B'}:
+   	    continue
 
-	printf('Bootloader responded!')
+	print('Bootloader responded!')
 
 def main():
     # Argument parser setup.
