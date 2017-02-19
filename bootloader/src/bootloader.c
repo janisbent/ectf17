@@ -157,7 +157,7 @@ void readback(void)
     wdt_enable(WDTO_2S);
 
     // Read frame from UART1
-    read_frame(frame, frame_index, 0);
+    while (read_frame(frame, frame_index, 0) < 0) ;
 
     // Read in start address (4 bytes).
     start_addr  = ((uint32_t)frame[frame_index++]) << 24;
