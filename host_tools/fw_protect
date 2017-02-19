@@ -6,8 +6,6 @@ Firmware Bundle-and-Protect Tool
 import argparse
 import shutil
 import struct
-import json
-import zlib
 
 from cStringIO import StringIO
 from intelhex import IntelHex
@@ -57,15 +55,7 @@ if __name__ == '__main__':
         encryptedData += crypt.encode(hex_data[start:end])
         numPackets += 1
 
-    data = {
-        'version': version,
-        'firmware_size': firmware_size,
-        'num_packets': numPackets,
-        'encrypted_data': encryptedData
-    }
     
     with open(args.outfile, 'wb+') as outfile:
-        data = json.dumps(data)
-        data = zlib.compress(data)
-        outfile.write(data)
+        outfile.write(encryptedData)
 
