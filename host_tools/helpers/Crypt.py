@@ -54,21 +54,12 @@ class Crypt:
 		return signer.sign(msgHash) + cryptMsg;
 
 	def decode(self, msg):
-		factoryKey, bootloaderKey = self.getKeys();
+		factoryKey = self.getKey(self.FACTORY_KEY);
 
-		msgHash = msg[:256]
-		cryptMsg = msg[256:]
-
-		try:
-			cipher = PKCS1_OAEP.new(bootloaderKey)
-			decryptedMsg = cipher.decrypt(cryptMsg)
-
-			decryptedMsgHash = SHA1.new(decryptedMsg)	
-			pkcs1_15.new(factoryKey.publickey()).verify(decryptedMsgHash, msgHash)
-			
-			return decryptedMsg
-		except (ValueError, TypeError):
-			print "The signature is not valid."
+		cipher = PKCS1_OAEP.new(factoryKey)
+		decryptedMsg = cipher.decrypt(cryptMsg)
+	
+		return decryptedMsg
 
 
 	def _isNotKeyType(self, keyType):

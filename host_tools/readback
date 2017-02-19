@@ -58,6 +58,7 @@ if __name__ == '__main__':
 
     # Read the data and write it to stdout (hex encoded).
     data = ser.read(int(args.num_bytes))
+    data = crypt.decode(data)
     print(data.encode('hex'))
 
     # Write raw data to file (optional).
