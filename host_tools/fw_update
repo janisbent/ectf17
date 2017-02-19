@@ -23,6 +23,7 @@ import serial
 import struct
 import sys
 import time
+import os
 
 from cStringIO import StringIO
 from intelhex import IntelHex
@@ -38,8 +39,6 @@ FRAME_SIZE = 512
 def readFile(fileName):
     with open(fileName, 'rb') as file:
         data = file.read()
-        data = zlib.decompress(data)
-        data = json.loads(data)
 
     return data
 
