@@ -12,6 +12,8 @@ from Crypto.Signature import pkcs1_15
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
+MAX_DATA_SIZE = 214
+
 class Crypt:
 
 	FACTORY_KEY = "factory_key"

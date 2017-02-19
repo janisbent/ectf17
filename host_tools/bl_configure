@@ -31,9 +31,7 @@ def configure_bootloader(serial_port):
 
 	printf('Bootloader responded!')
 
-
-
-if __name__ == '__main__':
+def main():
     # Argument parser setup.
     parser = argparse.ArgumentParser(description='Bootloader Config Tool')
     parser.add_argument('--port', help='Serial port to use for configuration.',
@@ -51,4 +49,9 @@ if __name__ == '__main__':
 
     # Generate secret file.
     generate_secret_file()
+
+
+if __name__ == '__main__':
+    main()
+    
 
