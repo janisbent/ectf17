@@ -22,16 +22,15 @@ def generate_secret_file():
     shutil.copyfile(os.path.join(directory, 'secret_build_output.txt'),
                     os.path.join(directory, 'secret_configure_output.txt'))
 
-    # If there were additional secret parameters to output, the file could be
-    # edited here.
 
 def configure_bootloader(serial_port):
-    """
-    Configure bootloader using serial connection.
-    """
-    # If there were online configuration or checking of the bootloader using
-    # the serial port it could be added here.
-    pass
+	print('Waiting for bootloader to respond...')
+
+	while serial_port.read() not in {'U', 'R', 'B'}
+    	pass
+
+	printf('Bootloader responded!')
+
 
 
 if __name__ == '__main__':
@@ -42,7 +41,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Create serial connection using specified port.
-    serial_port = serial.Serial(args.port)
+    serial_port = serial.Serial(args.port, baudrate=115200, timeout=2)
 
     # Do configuration and then close port.
     try:

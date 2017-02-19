@@ -283,7 +283,7 @@ void program_flash(uint32_t page_address, unsigned char *data)
 }
 
 /*
- * Reads one 512B frame of data from UART1, retrying up toretries times 
+ * Reads one 512B frame of data from UART1, retrying up to retries times 
  * if verification fails and aborting after.
  *
  * Fills data into the buffer starting at buffer[buffer_index]
