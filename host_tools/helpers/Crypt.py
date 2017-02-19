@@ -47,7 +47,7 @@ class Crypt:
 		signer = pkcs1_15.new(factoryKey)
 
 		cryptMsg = cipher.encrypt(msg)
-		msgHash = SHA256.new(msg)
+		msgHash = SHA1.new(msg)
 
 		return signer.sign(msgHash) + cryptMsg;
 
@@ -61,7 +61,7 @@ class Crypt:
 			cipher = PKCS1_OAEP.new(bootloaderKey)
 			decryptedMsg = cipher.decrypt(cryptMsg)
 
-			decryptedMsgHash = SHA256.new(decryptedMsg)	
+			decryptedMsgHash = SHA1.new(decryptedMsg)	
 			pkcs1_15.new(factoryKey.publickey()).verify(decryptedMsgHash, msgHash)
 			
 			return decryptedMsg
