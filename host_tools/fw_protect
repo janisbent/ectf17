@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # Add release message to end of hex (null-terminated).
     sio = StringIO()
     firmware.putsz(firmware_size, (args.message + '\0'))
-    firmware.write_hex_file(sio)
+    firmware.tobinfile(sio)
     hex_data = sio.getvalue()
 
     # version, firmware_size, message_size (shorts)
