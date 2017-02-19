@@ -57,12 +57,14 @@ typedef struct Header_data {
     bool passed;
 } Header_data;
 
-void program_flash(uint32_t page_address, unsigned char *data);
-void load_firmware(void);
 void boot_firmware(void);
+
 void readback(void);
-void write_frame(unsigned char frame[]);
 void read_mem(uint32_t start_addr, uint32_t size);
+void write_frame(unsigned char frame[]);
+
+void load_firmware(void);
+void program_flash(uint32_t page_address, unsigned char *data);
 unsigned int read_frame(unsigned char buffer[], unsigned int buffer_index,
                         int retries);
 Header_data check_header(void);
