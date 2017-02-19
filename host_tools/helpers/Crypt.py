@@ -30,7 +30,7 @@ class Crypt:
 		encoded_key = self.sf.get(keyType)
 
 		if encoded_key is None:
-			key = RSA.generate(4096)
+			key = RSA.generate(2048)
 			self.sf.set(keyType, key.exportKey());
 		else:
 			key = RSA.import_key(encoded_key)
@@ -54,8 +54,8 @@ class Crypt:
 	def decode(self, msg):
 		factoryKey, bootloaderKey = self.getKeys();
 
-		msgHash = msg[:512]
-		cryptMsg = msg[512:]
+		msgHash = msg[:256]
+		cryptMsg = msg[256:]
 
 		try:
 			cipher = PKCS1_OAEP.new(bootloaderKey)
