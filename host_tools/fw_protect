@@ -17,6 +17,16 @@ from math import ceil
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+def encrypt(plaintext):
+    key = "Hello world!"
+
+    for i in range(len(plaintext)):
+        encryptedData[i] = plaintext[i] ^ key[i % len(key)]
+
+    return encryptedData
+
+    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
 
@@ -45,16 +55,18 @@ if __name__ == '__main__':
     hex_data = sio.getvalue()
 
     # version, firmware_size, message_size (shorts)
-    crypt = Crypt(FILE_DIR)
+    # crypt = Crypt(FILE_DIR)
     bundleData = struct.pack('>HHH', version, firmware_size, len(args.message) + 1)
 
-    encryptedData = crypt.encode(bundleData)
+    encryptedData = encrypt(bundleData)
+    #encryptedData = crypt.encode(bundleData)
     numPackets = 0
 
     for i in range(ceil(len(hex_data) / float(MAX_DATA_SIZE))):
         start = i * MAX_DATA_SIZE
         end = (i + 1) * MAX_DATA_SIZE
-        encryptedData += crypt.encode(hex_data[start:end])
+        encryptedData += encode(hex_data[start:end])
+        # encryptedData += crypt.encode(hex_data[start:end])
         numPackets += 1
 
     
