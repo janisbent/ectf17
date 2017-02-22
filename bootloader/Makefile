@@ -10,7 +10,7 @@ OBJCOPY = avr-objcopy
 
 # Compiler configurations.
 CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DPUBLIC_KEY=\"${PUBLIC_KEY}\" -DPRIVATE_KEY=\"${PRIVATE_KEY}\"
-CLINKER = -nostartfiles -Wl,--section-start=.text=0x1F000
+CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000
 CWARN =  -Wall #-Wextra -Wformat=2 -Wformat-security
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
        -fno-inline-small-functions -fsigned-char \
