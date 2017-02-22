@@ -63,20 +63,21 @@ typedef struct Header_data {
     bool passed;
 } Header_data;
 
-void boot_firmware(void);
+static inline void boot_firmware(void);
 
-void readback(void);
-void read_mem(uint32_t start_addr, uint32_t size);
-void write_frame(unsigned char frame[]);
+static inline void readback(void);
+static inline void read_mem(uint32_t start_addr, uint32_t size);
+static inline void write_frame(unsigned char frame[]);
 
-void load_firmware(void);
-void program_flash(uint32_t page_address, unsigned char *data);
-unsigned int read_frame(unsigned char buffer[], unsigned int buffer_index,
-                        int retries);
-Header_data check_header(void);
-Header_data read_header(void);
-void store_body(Header_data h);
-void advance_buffer(unsigned char buffer[], unsigned int buffer_index);
+static inline void load_firmware(void);
+static inline void program_flash(uint32_t page_address, unsigned char *data);
+static inline unsigned int read_frame(unsigned char buffer[], 
+                                      unsigned int buffer_index, int retries);
+static inline Header_data check_header(void);
+static inline Header_data read_header(void);
+static inline void store_body(Header_data h);
+static inline void advance_buffer(unsigned char buffer[], 
+                                  unsigned int buffer_index);
 
 int main(void) 
 {
@@ -115,7 +116,7 @@ int main(void)
  ***************** BOOT FIRMWARE *******************
  ***************************************************/
 
-void boot_firmware(void)
+static inline void boot_firmware(void)
 {
     // Start the Watchdog Timer.
     wdt_enable(WDTO_2S);
@@ -154,7 +155,7 @@ void boot_firmware(void)
  ******************** READBACK *********************
  ***************************************************/
 
-void readback(void)
+static inline void readback(void)
 {
     unsigned char frame[FRAME_SIZE];
     unsigned int frame_index = 0;
@@ -187,7 +188,7 @@ void readback(void)
     while(1) __asm__ __volatile__("");
 }
 
-void read_mem(uint32_t start_addr, uint32_t size)
+static inline void read_mem(uint32_t start_addr, uint32_t size)
 {
     unsigned char frame[FRAME_SIZE];
     unsigned char buffer[SPM_PAGESIZE];
@@ -214,7 +215,7 @@ void read_mem(uint32_t start_addr, uint32_t size)
     }
 }
 
-void write_frame(unsigned char frame[])
+static inline void write_frame(unsigned char frame[])
 {
     do
     {
@@ -231,7 +232,7 @@ void write_frame(unsigned char frame[])
  ***************** LOAD FIRMWARE *******************
  ***************************************************/
 
-void load_firmware(void)
+static inline void load_firmware(void)
 {
     Header_data h;
 
@@ -273,7 +274,7 @@ void load_firmware(void)
  *
  * You must fill the buffer one word at a time
  */
-void program_flash(uint32_t page_address, unsigned char *data)
+static inline void program_flash(uint32_t page_address, unsigned char *data)
 {
     int i = 0;
 
@@ -296,8 +297,8 @@ void program_flash(uint32_t page_address, unsigned char *data)
  *
  * Fills data into the buffer starting at buffer[buffer_index]
  */
-unsigned int read_frame(unsigned char buffer[], unsigned int buffer_index, 
-                int retries)
+static inline unsigned int read_frame(unsigned char buffer[], 
+                                      unsigned int buffer_index, int retries)
 {
     unsigned char frame[FRAME_SIZE];
     unsigned int size = 0;
@@ -333,7 +334,7 @@ retry_frame:
     return 0;
 }
 
-Header_data check_header(void)
+static inline Header_data check_header(void)
 {
     Header_data h;
     
@@ -366,7 +367,7 @@ version_pass:
     return h;
 }
 
-Header_data read_header(void)
+static inline Header_data read_header(void)
 {
     unsigned char buffer[FRAME_SIZE];
     unsigned int buffer_index = 0;
@@ -393,7 +394,7 @@ Header_data read_header(void)
     return h;
 }
 
-void store_body(Header_data h)
+static inline void store_body(Header_data h)
 {
     unsigned char buffer[FRAME_SIZE * 3];
     unsigned int buffer_index = 0;
@@ -444,7 +445,8 @@ void store_body(Header_data h)
 /*
  * Moves every element in the buffer up a page and 0s memory of old location
  */
-void advance_buffer(unsigned char buffer[], unsigned int buffer_index)
+static inline void advance_buffer(unsigned char buffer[], 
+                                  unsigned int buffer_index)
 {
     for (unsigned i = 0; i + SPM_PAGESIZE < buffer_index; i++)
     {
