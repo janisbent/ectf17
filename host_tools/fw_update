@@ -69,7 +69,8 @@ if __name__ == '__main__':
     numFrames = int(ceil(len(data) / float(FRAME_SIZE)))
 
     for i in range(numFrames):
-        frame = data[i * FRAME_SIZE : (i + 1) * FRAME_SIZE]
+        frame = data[i * FRAME_SIZE : (i + 1) * FRAME_SIZE].ljust(FRAME_SIZE)
+        
 
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(i, len(frame)))
