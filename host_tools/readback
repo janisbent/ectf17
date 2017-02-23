@@ -27,6 +27,17 @@ FRAME_SIZE = 512
 
 crypt = Crypt(os.path.abspath(os.path.dirname(__file__)))
 
+def decrypt(cyphertext):
+    key = "Hello world!"
+    plaintext = ""
+
+    for i in range(len(cyphertext)):
+        plaintext += ord(cyphertext[i]) ^ ord(key[i % len(key)])
+
+    return plaintext
+
+
+
 def construct_request(start_addr, num_bytes):
     # Read in secret password from file.
 
@@ -65,8 +76,8 @@ if __name__ == '__main__':
         pass
 
     # build and encrypt request
-    request = construct_request(int(args.address), int(args.num_bytes))
-    request = crypt.encrypt(request)
+#    request = construct_request(int(args.address), int(args.num_bytes))
+#    request = crypt.encrypt(request)
 
     # Send the request.
     ser.write(request)
@@ -91,7 +102,8 @@ if __name__ == '__main__':
 
             data = ser.read(FRAME_SIZE)
             
-        data = crypt.decode(data)
+#        data = crypt.decode(data)
+        data = decrypt(data)
         print(data.encode('hex'))
 
         # Write raw data to file (optional).
