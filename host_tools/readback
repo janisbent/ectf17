@@ -24,6 +24,7 @@ from helpers.Crypt import Crypt
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 FRAME_SIZE = 512
+PAGE_SIZE = 256
 
 crypt = Crypt(os.path.abspath(os.path.dirname(__file__)))
 
@@ -32,7 +33,7 @@ def decrypt(cyphertext):
     plaintext = ""
 
     for i in range(len(cyphertext)):
-        plaintext += ord(cyphertext[i]) ^ ord(key[i % len(key)])
+        plaintext += str(ord(cyphertext[i]) ^ ord(key[i % len(key)]))
 
     return plaintext
 
@@ -42,11 +43,6 @@ def construct_request(start_addr, num_bytes):
     # Read in secret password from file.
 
     packData = struct.pack('>II', start_addr, num_bytes)
-
-    print(start_addr)
-    print(num_bytes)
-    for i in range(len(packData)):
-        print(ord(packData[i]))
 
     return packData
 
@@ -81,11 +77,11 @@ if __name__ == '__main__':
         pass
 
     # build and encrypt request
-    request = construct_request(int(args.address), int(args.num_bytes))
+    request = construct_request(int(args.address), int(args.num_bytes)).ljust(FRAME_SIZE)
 #    request = crypt.encrypt(request)
 
-    print('Hallo')
-    print(request)
+#    request = decrypt(request).ljust(FRAME_SIZE)
+
     # Send the request.
     ser.write(request)
 
@@ -95,27 +91,29 @@ if __name__ == '__main__':
         sys.exit("Bootloader rejected request")
 
     # Read the data and write it to stdout (hex encoded).
-    for i in range(int(ceil(num_bytes / float(FRAME_SIZE)))):
+    for i in range(int(ceil(num_bytes / float(PAGE_SIZE)))):
         # Accept last, impartial frame
-        if num_bytes - (i * FRAME_SIZE) < FRAME_SIZE:
+        if num_bytes - (i * PAGE_SIZE) < PAGE_SIZE:
             # Print debug message
             if args.debug:
-                sys.stderr.write("Reading partial frame: {} bytes\n".format(num_bytes % FRAME_SIZE))
-            data = ser.read(num_bytes % FRAME_SIZE)
+                sys.stderr.write("Reading partial frame: {} bytes\n".format(num_bytes % PAGE_SIZE))
+            data = ser.read(num_bytes % PAGE_SIZE)
         # Accept full frame
         else:
             # Print debug message
             if args.debug:
-                sys.stderr.write("Reading full frame: {} bytes\n".format(FRAME_SIZE))
+                sys.stderr.write("Reading full frame: {} bytes\n".format(PAGE_SIZE))
 
-            data = ser.read(FRAME_SIZE)
+            data = ser.read(PAGE_SIZE)
             
 #        data = crypt.decode(data)
-        data = decrypt(data)
-        print(data.encode('hex'))
+#        data = decrypt(data)
+        print(data)
+#        print(data.encode('hex'))
 
         # Write raw data to file (optional).
         if args.datafile:
             datafile.write(data)
             
-        ser.write(RESP_OKAY)
+        ser.write(RESP_OK)
+
