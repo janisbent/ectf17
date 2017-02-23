@@ -20,8 +20,9 @@ FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 def encrypt(plaintext):
     key = "Hello world!"
 
+    encryptedData = ""
     for i in range(len(plaintext)):
-        encryptedData[i] = plaintext[i] ^ key[i % len(key)]
+        encryptedData += str(ord(plaintext[i]) ^ ord(key[i % len(key)]))
 
     return encryptedData
 
@@ -62,10 +63,10 @@ if __name__ == '__main__':
     #encryptedData = crypt.encode(bundleData)
     numPackets = 0
 
-    for i in range(ceil(len(hex_data) / float(MAX_DATA_SIZE))):
+    for i in range(int(ceil(len(hex_data) / float(MAX_DATA_SIZE)))):
         start = i * MAX_DATA_SIZE
         end = (i + 1) * MAX_DATA_SIZE
-        encryptedData += encode(hex_data[start:end])
+        encryptedData += encrypt(hex_data[start:end])
         # encryptedData += crypt.encode(hex_data[start:end])
         numPackets += 1
 
