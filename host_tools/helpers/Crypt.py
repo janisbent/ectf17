@@ -16,8 +16,6 @@ class Crypt:
 	def __init__(self, directory):
 		sf = SecretFile(directory)
 
-		self.key = get_random_bytes(16)
-
 		self.key = sf.getKey()
 		if self.key is None:
 			self.key = get_random_bytes(16)
@@ -30,6 +28,8 @@ class Crypt:
 	def hash(self, msg):
 		return SHA256.new(msg).digest()
 
+	# http://legrandin.github.io/pycryptodome/Doc/3.4/Crypto.Cipher.AES-module.html
+	# msg must be multiple of 16
 	def encode(self, msg):
 		cipher = AES.new(self.key, AES.MODE_ECB)
 		return cipher.encrypt(msg)
