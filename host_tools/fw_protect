@@ -59,18 +59,20 @@ if __name__ == '__main__':
     # crypt = Crypt(FILE_DIR)
     bundleData = struct.pack('>HHH', version, firmware_size, len(args.message) + 1)
 
-    encryptedData = encrypt(bundleData)
+    bundleData += hex_data
+    #encryptedData = encrypt(bundleData)
     #encryptedData = crypt.encode(bundleData)
     numPackets = 0
 
-    for i in range(int(ceil(len(hex_data) / float(MAX_DATA_SIZE)))):
-        start = i * MAX_DATA_SIZE
-        end = (i + 1) * MAX_DATA_SIZE
-        encryptedData += encrypt(hex_data[start:end])
-        # encryptedData += crypt.encode(hex_data[start:end])
-        numPackets += 1
+#    for i in range(int(ceil(len(hex_data) / float(MAX_DATA_SIZE)))):
+#        start = i * MAX_DATA_SIZE
+#        end = (i + 1) * MAX_DATA_SIZE
+#        #encryptedData += encrypt(hex_data[start:end])
+#        # encryptedData += crypt.encode(hex_data[start:end])
+#        numPackets += 1
 
     
     with open(args.outfile, 'wb+') as outfile:
-        outfile.write(encryptedData)
+#        outfile.write(encryptedData)
+        outfile.write(bundleData)
 
