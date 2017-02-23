@@ -183,6 +183,7 @@ static inline void readback(void)
     wdt_reset();
 
     // Read the memory out to UART1.
+    read_mem(start_addr, size);
 
     // Wait for watchdog timer to reset.
     while(1) __asm__ __volatile__("");
@@ -280,7 +281,7 @@ static inline void program_flash(uint32_t page_address, unsigned char *data)
 
     boot_page_erase_safe(page_address);
 
-    for(i = 0; i < SPM_PAGESIZE; i += 2)
+    for (i = 0; i < SPM_PAGESIZE; i += 2)
     {
         uint16_t w = data[i];    // Make a word out of two bytes
         w += data[i+1] << 8;
