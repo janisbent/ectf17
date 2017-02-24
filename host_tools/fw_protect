@@ -11,23 +11,12 @@ import os
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from helpers.Crypt import Crypt
-from helpers.Crypt import MAX_DATA_SIZE
+#from helpers.Crypt import Crypt
+#from helpers.Crypt import MAX_DATA_SIZE
 from math import ceil
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 FRAME_SIZE = 512
-
-def encrypt(plaintext):
-    key = "Hello world!"
-
-    encryptedData = ""
-    for i in range(len(plaintext)):
-        encryptedData += str(ord(plaintext[i]) ^ ord(key[i % len(key)]))
-
-    return encryptedData
-
-    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -43,38 +32,28 @@ if __name__ == '__main__':
                         required=True)
     args = parser.parse_args()
 
-    # Parse Intel hex file.
+    # Get binary data from hex file
     firmware = IntelHex(args.infile)
-
-    # Get version and size.
-    firmware_size = firmware.maxaddr() + 1
-    version = int(args.version)
-
-    # Add release message to end of hex (null-terminated).
     sio = StringIO()
-    firmware.putsz(firmware_size, (args.message + '\0'))
     firmware.tobinfile(sio)
     hex_data = sio.getvalue()
-    hex_data += '\00' * (FRAME_SIZE - (len(hex_data) % FRAME_SIZE))
 
-    # version, firmware_size, message_size (shorts)
-    # crypt = Crypt(FILE_DIR)
-    bundleData = struct.pack('>HHH', version, firmware_size, len(args.message) + 1).ljust(FRAME_SIZE)
+    # Pack metadata
+    metadata = struct.pack('>HHH', int(args.version), 
+                           firmware.maxaddr() + 1, len(args.message) + 1)
 
-    bundleData += hex_data
-    #encryptedData = encrypt(bundleData)
-    #encryptedData = crypt.encode(bundleData)
-    numPackets = 0
+    # Build data bundle
+    bundleData  = metadata.ljust(FRAME_SIZE, '\00')
+    bundleData += (hex_data[:-1]).ljust(FRAME_SIZE, '\00')
+    bundleData += (args.message[:-1]).ljust(FRAME_SIZE, '\00')
 
-#    for i in range(int(ceil(len(hex_data) / float(MAX_DATA_SIZE)))):
-#        start = i * MAX_DATA_SIZE
-#        end = (i + 1) * MAX_DATA_SIZE
-#        #encryptedData += encrypt(hex_data[start:end])
-#        # encryptedData += crypt.encode(hex_data[start:end])
-#        numPackets += 1
+    fw_frames = int(ceil(len(bundleData) / float(FRAME_SIZE))) - 1
+    print bundleData
+    outfile = open(args.outfile, 'wb+')
 
-    
-    with open(args.outfile, 'wb+') as outfile:
-#        outfile.write(encryptedData)
-        outfile.write(bundleData)
-
+    # Send frames
+    for i in range(fw_frames):
+        start = i * FRAME_SIZE
+        end = (i + 1) * FRAME_SIZE
+        frame = bundleData[start:end]
+        outfile.write(frame)

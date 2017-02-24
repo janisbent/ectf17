@@ -93,25 +93,6 @@ int main(void)
     // Enable pullups - give port time to settle.
     PORTB |= (1 << PB2) | (1 << PB3);
 
-    /*
-    uint8_t page[256];
-    for (int i = 0; i < 256; i++) {
-        switch (i % 5) {
-            case 0: page[i] = 'H';
-                    break;
-            case 1: page[i] = 'e';
-                    break;
-            case 2: page[i] = 'l';
-                    break;
-            case 3: page[i] = 'l';
-                    break;
-            case 4: page[i] = 'o';
-
-        }
-    }
-    program_flash(0,page);
-    */
-
     // If jumper is present on pin 2, load new firmware.
     if(!(PINB & (1 << PB2)))
     {
@@ -221,8 +202,6 @@ static inline void read_mem(uint32_t start_addr, uint32_t size)
         for (buffer_index = 0; buffer_index < SPM_PAGESIZE 
                                && addr < start_addr + size; addr++)
         {
-            //UART1_putchar('Y');
-            //UART1_putchar((uint8_t)addr);
             buffer[buffer_index++] = pgm_read_byte_far(addr);
             wdt_reset();
         }
@@ -235,7 +214,6 @@ static inline void read_mem(uint32_t start_addr, uint32_t size)
         write_frame(frame, buffer_index);
         wdt_reset();
     }
-    //UART1_putchar('Z');
 }
 
 /*
@@ -251,11 +229,13 @@ static inline unsigned int read_frame(unsigned char buffer[],
     unsigned int size = 0;
 
 retry_frame:
+    //UART1_putchar('S');/////////////
     for (unsigned int data_index = 0; data_index < FRAME_SIZE; data_index++)
     {
         frame[data_index] = UART1_getchar();
         wdt_reset();
     }
+    //UART1_putchar('E');/////////////
 
     size = decrypt_frame(frame, buffer, buffer_index);
 
@@ -283,7 +263,6 @@ retry_frame:
 
 static inline void write_frame(uint8_t frame[], uint32_t frame_size)
 {
-    //UART1_putchar('P');
     do
     {
         // write frame to UART1
@@ -319,6 +298,9 @@ static inline void load_firmware(void)
         h = check_header();
     } while (!h.passed);
 
+    //UART1_putchar(h.body_size >> 8);/////////////////////////////////////
+    //UART1_putchar(h.body_size);/////////////////////////////////////
+
     // Write new firmware sizes to EEPROM.
     wdt_reset();
     eeprom_update_word(&fw_size, h.body_size);
@@ -326,36 +308,8 @@ static inline void load_firmware(void)
 
     // Get and store body data
     store_body(h);
-}
 
-
-/*
- * To program flash, you need to access and program it in pages
- * On the atmega1284p, each page is 128 words, or 256 bytes
- *
- * Programing involves four things,
- * 1. Erasing the page
- * 2. Filling a page buffer
- * 3. Writing a page
- * 4. When you are done programming all of your pages, enable the flash
- *
- * You must fill the buffer one word at a time
- */
-static inline void program_flash(uint32_t page_address, unsigned char *data)
-{
-    int i = 0;
-
-    boot_page_erase_safe(page_address);
-
-    for (i = 0; i < SPM_PAGESIZE; i += 2)
-    {
-        uint16_t w = data[i];    // Make a word out of two bytes
-        w += data[i+1] << 8;
-        boot_page_fill_safe(page_address+i, w);
-    }
-
-    boot_page_write_safe(page_address);
-    boot_rww_enable_safe(); // We can just enable it after every program too
+    //UART1_putchar('D');////////////////
 }
 
 static inline Header_data check_header(void)
@@ -441,7 +395,7 @@ static inline void store_body(Header_data h)
         buffer_index += size;
 
         // Write full pages to buffer
-        while (buffer_index > SPM_PAGESIZE)
+        while (buffer_index >= SPM_PAGESIZE)
         {
             // Program page to memory
             program_flash(page, buffer);
@@ -454,20 +408,16 @@ static inline void store_body(Header_data h)
             // Remove page from buffer index and add to page
             buffer_index -= SPM_PAGESIZE;
             page += SPM_PAGESIZE;
-
-#if 1
-            // Write debugging messages to UART0.
-            UART1_putchar('P');
-            UART1_putchar(page>>8);
-            UART1_putchar(page);
-            wdt_reset();
-#endif
         }
+
         wdt_reset();
     }
 
     // write last page to memory
-    program_flash(page, buffer);
+    if (buffer_index > 0) 
+    {
+        program_flash(page, buffer);
+    }
 }
 
 /*
@@ -482,3 +432,33 @@ static inline void advance_buffer(unsigned char buffer[],
         buffer[i + SPM_PAGESIZE] = 0;
     }
 }
+
+/*
+ * To program flash, you need to access and program it in pages
+ * On the atmega1284p, each page is 128 words, or 256 bytes
+ *
+ * Programing involves four things,
+ * 1. Erasing the page
+ * 2. Filling a page buffer
+ * 3. Writing a page
+ * 4. When you are done programming all of your pages, enable the flash
+ *
+ * You must fill the buffer one word at a time
+ */
+static inline void program_flash(uint32_t page_address, unsigned char *data)
+{
+    int i = 0;
+
+    boot_page_erase_safe(page_address);
+
+    for (i = 0; i < SPM_PAGESIZE; i += 2)
+    {
+        uint16_t w = data[i];    // Make a word out of two bytes
+        w += data[i+1] << 8;
+        boot_page_fill_safe(page_address+i, w);
+    }
+
+    boot_page_write_safe(page_address);
+    boot_rww_enable_safe(); // We can just enable it after every program too
+}
+
