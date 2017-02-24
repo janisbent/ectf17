@@ -67,7 +67,7 @@ static inline void boot_firmware(void);
 
 static inline void readback(void);
 static inline void read_mem(uint32_t start_addr, uint32_t size);
-static inline void write_frame(unsigned char frame[]);
+static inline void write_frame(uint8_t frame[], uint32_t frame_size);
 
 static inline void load_firmware(void);
 static inline void program_flash(uint32_t page_address, unsigned char *data);
@@ -92,6 +92,25 @@ int main(void)
 
     // Enable pullups - give port time to settle.
     PORTB |= (1 << PB2) | (1 << PB3);
+
+    /*
+    uint8_t page[256];
+    for (int i = 0; i < 256; i++) {
+        switch (i % 5) {
+            case 0: page[i] = 'H';
+                    break;
+            case 1: page[i] = 'e';
+                    break;
+            case 2: page[i] = 'l';
+                    break;
+            case 3: page[i] = 'l';
+                    break;
+            case 4: page[i] = 'o';
+
+        }
+    }
+    program_flash(0,page);
+    */
 
     // If jumper is present on pin 2, load new firmware.
     if(!(PINB & (1 << PB2)))
@@ -202,6 +221,8 @@ static inline void read_mem(uint32_t start_addr, uint32_t size)
         for (buffer_index = 0; buffer_index < SPM_PAGESIZE 
                                && addr < start_addr + size; addr++)
         {
+            //UART1_putchar('Y');
+            //UART1_putchar((uint8_t)addr);
             buffer[buffer_index++] = pgm_read_byte_far(addr);
             wdt_reset();
         }
@@ -211,17 +232,62 @@ static inline void read_mem(uint32_t start_addr, uint32_t size)
         wdt_reset();
 
         // Write frame to UART1
-        write_frame(frame);
+        write_frame(frame, buffer_index);
         wdt_reset();
     }
+    //UART1_putchar('Z');
 }
 
-static inline void write_frame(unsigned char frame[])
+/*
+ * Reads one 512B frame of data from UART1, retrying up to retries times 
+ * if verification fails and aborting after.
+ *
+ * Fills data into the buffer starting at buffer[buffer_index]
+ */
+static inline unsigned int read_frame(unsigned char buffer[], 
+                                      unsigned int buffer_index, int retries)
 {
+    unsigned char frame[FRAME_SIZE];
+    unsigned int size = 0;
+
+retry_frame:
+    for (unsigned int data_index = 0; data_index < FRAME_SIZE; data_index++)
+    {
+        frame[data_index] = UART1_getchar();
+        wdt_reset();
+    }
+
+    size = decrypt_frame(frame, buffer, buffer_index);
+
+    // return if decryption succeeds
+    if (size > 0)
+    {
+        UART1_putchar(OK); // Acknowledge the frame.
+        return size;
+    }
+
+    // if frame retries requested
+    if (retries-- > 0) 
+    {
+        UART1_putchar(ERROR);   // report rejected frame
+        goto retry_frame;       // reread frame
+    }
+
+    // abort with error
+    UART1_putchar(ABORT);
+    while(1) __asm__ __volatile__("");
+
+    // Silence compiler
+    return 0;
+}
+
+static inline void write_frame(uint8_t frame[], uint32_t frame_size)
+{
+    //UART1_putchar('P');
     do
     {
         // write frame to UART1
-        for (int frame_index = 0; frame_index < FRAME_SIZE; frame_index++)
+        for (int frame_index = 0; frame_index < frame_size; frame_index++)
         {
             UART1_putchar(frame[frame_index]);
         }
@@ -292,49 +358,6 @@ static inline void program_flash(uint32_t page_address, unsigned char *data)
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
 
-/*
- * Reads one 512B frame of data from UART1, retrying up to retries times 
- * if verification fails and aborting after.
- *
- * Fills data into the buffer starting at buffer[buffer_index]
- */
-static inline unsigned int read_frame(unsigned char buffer[], 
-                                      unsigned int buffer_index, int retries)
-{
-    unsigned char frame[FRAME_SIZE];
-    unsigned int size = 0;
-
-retry_frame:
-    for (unsigned int data_index = 0; data_index < FRAME_SIZE; data_index++)
-    {
-        frame[data_index] = UART1_getchar();
-        wdt_reset();
-    }
-
-    size = decrypt_frame(frame, buffer, buffer_index);
-
-    // return if decryption succeeds
-    if (size > 0)
-    {
-        UART1_putchar(OK); // Acknowledge the frame.
-        return size;
-    }
-
-    // if frame retries requested
-    if (retries-- > 0) 
-    {
-        UART1_putchar(ERROR);   // report rejected frame
-        goto retry_frame;       // reread frame
-    }
-
-    // abort with error
-    UART1_putchar(ABORT);
-    while(1) __asm__ __volatile__("");
-
-    // Silence compiler
-    return 0;
-}
-
 static inline Header_data check_header(void)
 {
     Header_data h;
@@ -344,7 +367,7 @@ static inline Header_data check_header(void)
     wdt_reset();
 
     // Pass if higher version or version 0 
-    if (h.version == 0 || h.version < eeprom_read_word(&fw_version)) 
+    if (h.version == 0 || h.version >= eeprom_read_word(&fw_version)) 
     {
         goto version_pass;
     }
@@ -356,6 +379,9 @@ static inline Header_data check_header(void)
     while (1) __asm__ __volatile__("");
    
 version_pass:
+    // Accept metadata
+    UART1_putchar(OK);
+
     if (h.version != 0)
     {
         // Update version number in EEPROM.
@@ -377,8 +403,10 @@ static inline Header_data read_header(void)
     read_frame(buffer, buffer_index, 0);
 
     // parse decrypted header data to variables
-    for ( ; buffer_index < HEADER_SIZE; buffer_index += 2) {
-        switch (buffer_index) {
+    for ( ; buffer_index < HEADER_SIZE; buffer_index += 2) 
+    {
+        switch (buffer_index) 
+        {
             case 0 : h.version = (uint16_t)buffer[buffer_index] << 8;
                      h.version += buffer[buffer_index + 1];
                      break;
@@ -426,16 +454,15 @@ static inline void store_body(Header_data h)
             // Remove page from buffer index and add to page
             buffer_index -= SPM_PAGESIZE;
             page += SPM_PAGESIZE;
-        }
 
 #if 1
-        // Write debugging messages to UART0.
-        UART0_putchar('P');
-        UART0_putchar(page>>8);
-        UART0_putchar(page);
-        wdt_reset();
+            // Write debugging messages to UART0.
+            UART1_putchar('P');
+            UART1_putchar(page>>8);
+            UART1_putchar(page);
+            wdt_reset();
 #endif
-
+        }
         wdt_reset();
     }
 

@@ -16,6 +16,7 @@ from helpers.Crypt import MAX_DATA_SIZE
 from math import ceil
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
+FRAME_SIZE = 512
 
 def encrypt(plaintext):
     key = "Hello world!"
@@ -54,10 +55,11 @@ if __name__ == '__main__':
     firmware.putsz(firmware_size, (args.message + '\0'))
     firmware.tobinfile(sio)
     hex_data = sio.getvalue()
+    hex_data += '\00' * (FRAME_SIZE - (len(hex_data) % FRAME_SIZE))
 
     # version, firmware_size, message_size (shorts)
     # crypt = Crypt(FILE_DIR)
-    bundleData = struct.pack('>HHH', version, firmware_size, len(args.message) + 1)
+    bundleData = struct.pack('>HHH', version, firmware_size, len(args.message) + 1).ljust(FRAME_SIZE)
 
     bundleData += hex_data
     #encryptedData = encrypt(bundleData)

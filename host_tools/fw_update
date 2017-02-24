@@ -42,6 +42,49 @@ def readFile(fileName):
 
     return data
 
+def sendHeader(ser, data, debug):
+    print "Writing header...  "
+
+    frame = data[0 : FRAME_SIZE]
+    ser.write(frame)
+    
+    # Check valid decryption
+    resp = ser.read()
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader rejected request")
+
+    # Check version pass
+    resp = ser.read()
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader rejected request")
+
+    if debug:
+        print "Header accepted!"
+
+
+def sendFrame(ser, data, debug):
+        frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
+
+        if debug:
+            print "Writing frame {} ({} bytes)...".format(i, len(frame))
+
+        resp = RESP_ER
+        while resp != RESP_OK:
+            ser.write(frame)  # Write the frame...
+
+            if debug:
+                print(frame).encode('hex')
+
+            resp = ser.read()  # Wait for an OK from the bootloader
+    
+            if debug:
+                print("Response: {}".format(ord(resp)))
+
+            if resp == RESP_AB:
+                raise RuntimeError("\nERROR: Bootloader responded with {}".format(repr(resp)))
+            elif resp == RESP_ER:
+                print("\tRetrying...")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -66,34 +109,19 @@ if __name__ == '__main__':
     while ser.read(1) != 'U':
         pass
 
-    numFrames = int(ceil(len(data) / float(FRAME_SIZE)))
+    numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
 
+    # Send header
+    sendHeader(ser, data, args.debug)
+
+    if numFrames == 1:
+        print "Writing 1 frame..."
+    else:
+        print "Writing " + str(numFrames) + " frames..."
+
+    # Send frames
     for i in range(numFrames):
-        frame = data[i * FRAME_SIZE : (i + 1) * FRAME_SIZE].ljust(FRAME_SIZE)
-        
-
-        if args.debug:
-            print("Writing frame {} ({} bytes)...".format(i, len(frame)))
-
-        resp = RESP_ER
-        while resp != RESP_OK:
-            ser.write(frame)  # Write the frame...
-
-            if args.debug:
-                print(frame)
-
-            resp = ser.read()  # Wait for an OK from the bootloader
-
-            time.sleep(0.1)
-
-            if args.debug:
-                print("Resp: {}".format(ord(resp)))
-
-            if resp == RESP_AB:
-                raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
-            elif resp == RESP_ER:
-                print("Retrying...")
-
+        sendFrame(ser, data, args.debug)
         
     print("Done writing firmware.")
 

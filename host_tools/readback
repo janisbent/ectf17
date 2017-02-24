@@ -108,8 +108,8 @@ if __name__ == '__main__':
             
 #        data = crypt.decode(data)
 #        data = decrypt(data)
-        print(data)
-#        print(data.encode('hex'))
+#        print data 
+        print data.encode('hex')
 
         # Write raw data to file (optional).
         if args.datafile:
