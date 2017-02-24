@@ -7,60 +7,33 @@ for both factory and bootloader
 """
 
 from SecretFile import SecretFile
-from Crypto.Hash import SHA1
-from Crypto.Signature import pkcs1_15
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-
-MAX_DATA_SIZE = 214
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+from Crypto.Hash import SHA256
 
 class Crypt:
 
-	FACTORY_KEY = "factory_key"
-	BOOTLOADER_KEY = "bootloader_key"
-
 	def __init__(self, directory):
-		self.sf = SecretFile(directory)
+		sf = SecretFile(directory)
 
-	def __del__(self):
-		self.sf.flush()
+		self.key = sf.getKey()
+		if self.key is None:
+			self.key = get_random_bytes(16)
+			sf.setKey(self.key);
+			sf.flush()
 
-	def getKey(self, keyType):
-		if self._isNotKeyType(keyType):
-			return None;
+	def getKey(self):
+		return self.key
 
-		encoded_key = self.sf.get(keyType)
+	def hash(self, msg):
+		return SHA256.new(msg).digest()
 
-		if encoded_key is None:
-			key = RSA.generate(2048)
-			self.sf.set(keyType, key.exportKey());
-		else:
-			key = RSA.import_key(encoded_key)
-			
-		return key
-
-	def getKeys(self):
-		return (self.getKey(self.FACTORY_KEY), self.getKey(self.BOOTLOADER_KEY))
-
+	# http://legrandin.github.io/pycryptodome/Doc/3.4/Crypto.Cipher.AES-module.html
+	# msg must be multiple of 16
 	def encode(self, msg):
-		factoryKey, bootloaderKey = self.getKeys();
-
-		cipher = PKCS1_OAEP.new(bootloaderKey.publickey())
-		signer = pkcs1_15.new(factoryKey)
-
-		cryptMsg = cipher.encrypt(msg)
-		msgHash = SHA1.new(msg)
-
-		return signer.sign(msgHash) + cryptMsg;
+		cipher = AES.new(self.key, AES.MODE_ECB)
+		return cipher.encrypt(msg)
 
 	def decode(self, msg):
-		factoryKey = self.getKey(self.FACTORY_KEY);
-
-		cipher = PKCS1_OAEP.new(factoryKey)
-		decryptedMsg = cipher.decrypt(cryptMsg)
-	
-		return decryptedMsg
-
-
-	def _isNotKeyType(self, keyType):
-		return keyType != self.FACTORY_KEY and keyType != self.BOOTLOADER_KEY
+		cipher = AES.new(self.key, AES.MODE_ECB)
+		return cipher.decrypt(msg)

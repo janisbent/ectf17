@@ -6,33 +6,29 @@ Represents secret_configure_output.txt. Allows for the access and writing of all
 """
 
 import os
-import json
 
-FILE_NAME = "secret_build_output.txt"
+FILE_NAME = "secret_configure_output.txt"
 
 class SecretFile:
 
 	def __init__(self, directory):
 		self.filePath = os.path.join(directory, FILE_NAME)
-		self.data = {};
+		self.key = None
 		self.__readDataFromFile()
 
-	def set(self, key, value):
-		self.data[key] = value
+	def setKey(self, value):
+		self.key = value
 
-	def get(self, key):
-		if key in self.data:
-			return self.data[key]
-		else:
-			return None
+	def getKey(self):
+		return self.key
 
 	def flush(self):
 		with open(self.filePath, 'w+') as file:
-			file.write(json.dumps(self.data))
+			file.write(self.key)
 
 	def __readDataFromFile(self):
 		if os.path.isfile(self.filePath):
 			with open(self.filePath, 'r') as file:
-				strData = file.read().replace('\n', '')
+				strData = file.read()
 
-			self.data = json.loads(strData)
+			self.key = strData
