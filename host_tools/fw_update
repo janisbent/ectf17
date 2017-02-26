@@ -42,48 +42,49 @@ def readFile(fileName):
 
     return data
 
-def sendHeader(ser, data, debug):
+def sendHeader(ser, data):
     print "Writing header...  "
 
     frame = data[0 : FRAME_SIZE]
     ser.write(frame)
-    
+
     # Check valid decryption
     resp = ser.read()
     if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request")
+        raise RuntimeError("ERROR: Bootloader rejected request decrypt: " + resp)
 
     # Check version pass
     resp = ser.read()
     if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request")
-
-    if debug:
-        print "Header accepted!"
+        raise RuntimeError("ERROR: Bootloader rejected request version: " + resp)
 
 
 def sendFrame(ser, data, debug):
-        frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
+    frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
+
+    if debug:
+        print "Writing frame {} ({} bytes)...".format(i, len(frame))
+
+    resp = RESP_ER
+    while resp != RESP_OK:
+        ser.write(frame)  # Write the frame...
 
         if debug:
-            print "Writing frame {} ({} bytes)...".format(i, len(frame))
+            print(frame).encode('hex')
 
-        resp = RESP_ER
-        while resp != RESP_OK:
-            ser.write(frame)  # Write the frame...
-
-            if debug:
-                print(frame).encode('hex')
-
-            resp = ser.read()  # Wait for an OK from the bootloader
+        resp = ser.read()  # Wait for an OK from the bootloader
     
-            if debug:
-                print("Response: {}".format(ord(resp)))
+        if debug:
+            print "Response: {}".format(ord(resp))
 
-            if resp == RESP_AB:
-                raise RuntimeError("\nERROR: Bootloader responded with {}".format(repr(resp)))
-            elif resp == RESP_ER:
-                print("\tRetrying...")
+        time.sleep(0.1)
+
+        if resp == RESP_OK:
+            continue
+        elif resp == RESP_AB:
+            raise RuntimeError("\nERROR: Bootloader responded with {}".format(repr(resp)))
+        else:
+            print("\tRetrying...")
 
 
 if __name__ == '__main__':
@@ -109,19 +110,18 @@ if __name__ == '__main__':
     while ser.read(1) != 'U':
         pass
 
-    numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
-
     # Send header
-    sendHeader(ser, data, args.debug)
+    sendHeader(ser, data)
 
+    numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
     if numFrames == 1:
         print "Writing 1 frame..."
     else:
-        print "Writing " + str(numFrames) + " frames..."
+        print "Writing " + str(numFrames) + " frames (" + str(len(data)) + "bytes)..."
 
     # Send frames
     for i in range(numFrames):
         sendFrame(ser, data, args.debug)
-        
+
     print("Done writing firmware.")
 
