@@ -64,11 +64,11 @@ int decrypt_frame(unsigned char *frame, unsigned char *buffer,
 
 	r = bcal_cbc_init(&aes128_desc, key, 128, &ctx);
 	if(r)
-		return 0;
+		return 1;
 	bcal_cbc_decMsg(iv, plain, 4, &ctx);
 	buffer[buffer_start] = plain;
 	bcal_cbc_free(&ctx);
-	return 1//size of output always = input but i think 1 is fine
+	return 0//size of output always = input but i think 1 is fine
 
 }
 
@@ -89,12 +89,12 @@ int encrypt_frame(unsigned char *frame, unsigned char *buffer,
 	
 	//TODO assuming this is error check but need to confirm
 	if(r)
-		return 0;
+		return 1;
 	bcal_cbc_encMsg(iv, plain, 4, &ctx);
 	buffer[buffer_start] = plain;
 	bcal_cbc_free(&ctx);
 
-    return 1;
+    return 0;
 }
 
 // http://etutorials.org/Programming/secure+programming/Chapter+7.+Public+Key+Cryptography/7.13+Verifying+Signed+Data+Using+an+RSA+Public+Key/
@@ -119,26 +119,3 @@ int encrypt_frame(unsigned char *frame, unsigned char *buffer,
 // 	return ret;
 // }
 
-// http://hayageek.com/rsa-encryption-decryption-openssl-c/
-RSA *createRSA(unsigned char *key, bool public) {
-    RSA *rsa;
-    BIO *keybio = BIO_new_mem_buf(key, -1);
-
-    if (keybio == NULL) {
-        printf( "Failed to create key BIO");
-        return 0;
-    }
-
-    if (public) {
-        rsa = PEM_read_bio_RSA_PUBKEY(keybio, &rsa, NULL, NULL);
-    } else {
-        rsa = PEM_read_bio_RSAPrivateKey(keybio, &rsa, NULL, NULL);
-    }
-
-    if (rsa == NULL) {
-        printf("Failed to create RSA");
-        return 0;
-    }
- 
-    return rsa;
-}
