@@ -42,16 +42,11 @@ def readFile(fileName):
 
     return data
 
-def sendHeader(ser, data, debug):
+def sendHeader(ser, data):
     print "Writing header...  "
 
-    #print "Should be R: " + ser.read()#################
-    #print "Should be R: " + ser.read()#################
-
     frame = data[0 : FRAME_SIZE]
-    #print "Should be S: " + ser.read()#################
     ser.write(frame)
-    #print "Should be E: " + ser.read()#################
 
     # Check valid decryption
     resp = ser.read()
@@ -63,11 +58,6 @@ def sendHeader(ser, data, debug):
     if resp != RESP_OK:
         raise RuntimeError("ERROR: Bootloader rejected request version: " + resp)
 
-    if debug:
-        print "Header accepted!"
-        
-    #print "Body size: " + ser.read(2).encode('hex')
-
 
 def sendFrame(ser, data, debug):
     frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
@@ -75,13 +65,9 @@ def sendFrame(ser, data, debug):
     if debug:
         print "Writing frame {} ({} bytes)...".format(i, len(frame))
 
-    #print "Should be R: " + ser.read()#################
-
     resp = RESP_ER
     while resp != RESP_OK:
-        #print "Should be S: " + ser.read()#################
         ser.write(frame)  # Write the frame...
-        #print "Should be E: " + ser.read()#################
 
         if debug:
             print(frame).encode('hex')
@@ -125,7 +111,7 @@ if __name__ == '__main__':
         pass
 
     # Send header
-    sendHeader(ser, data, args.debug)
+    sendHeader(ser, data)
 
     numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
     if numFrames == 1:
@@ -137,8 +123,5 @@ if __name__ == '__main__':
     for i in range(numFrames):
         sendFrame(ser, data, args.debug)
 
-    while True:
-        print ser.read()
-        
     print("Done writing firmware.")
 

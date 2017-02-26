@@ -48,7 +48,6 @@ if __name__ == '__main__':
     bundleData += (args.message[:-1]).ljust(FRAME_SIZE, '\00')
 
     fw_frames = int(ceil(len(bundleData) / float(FRAME_SIZE))) - 1
-    print bundleData
     outfile = open(args.outfile, 'wb+')
 
     # Send frames
@@ -56,4 +55,7 @@ if __name__ == '__main__':
         start = i * FRAME_SIZE
         end = (i + 1) * FRAME_SIZE
         frame = bundleData[start:end]
+
+        ######### ENCRYPT FRAME ###############
+
         outfile.write(frame)

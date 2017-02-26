@@ -28,10 +28,9 @@ def make_bootloader():
 
     subprocess.call('make clean', shell=True)
 
-#    crypt = Crypt(FILE_DIR)
-
-    publicKey = ''#crypt.getKey(crypt.FACTORY_KEY).publickey().exportKey().replace("\n", '').replace(" ", "\ ")
-    privateKey = ''#crypt.getKey(crypt.BOOTLOADER_KEY).exportKey().replace("\n", '').replace(" ", "\ ")
+    ############ GENERATE PUBLIC/PRIVATE OR AES KEY ##########
+    publicKey = ''
+    privateKey = ''
 
     # Call make in subprocess to build bootloader.
     status = subprocess.call('make PUBLIC_KEY="' + publicKey + '" PRIVATE_KEY="' + privateKey + '"', shell=True)

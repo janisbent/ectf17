@@ -126,7 +126,7 @@ static inline void boot_firmware(void)
     uint32_t message_addr = (uint32_t)eeprom_read_word(&fw_size);
 
     // Reset if firmware size is 0 (indicates no firmware is loaded).
-    if(message_addr == 0)
+    if (message_addr == 0)
     {
         // Wait for watchdog timer to reset.
         while(1) __asm__ __volatile__("");
@@ -229,13 +229,11 @@ static inline unsigned int read_frame(unsigned char buffer[],
     unsigned int size = 0;
 
 retry_frame:
-    //UART1_putchar('S');/////////////
     for (unsigned int data_index = 0; data_index < FRAME_SIZE; data_index++)
     {
         frame[data_index] = UART1_getchar();
         wdt_reset();
     }
-    //UART1_putchar('E');/////////////
 
     size = decrypt_frame(frame, buffer, buffer_index);
 
@@ -298,9 +296,6 @@ static inline void load_firmware(void)
         h = check_header();
     } while (!h.passed);
 
-    //UART1_putchar(h.body_size >> 8);/////////////////////////////////////
-    //UART1_putchar(h.body_size);/////////////////////////////////////
-
     // Write new firmware sizes to EEPROM.
     wdt_reset();
     eeprom_update_word(&fw_size, h.body_size);
@@ -308,8 +303,6 @@ static inline void load_firmware(void)
 
     // Get and store body data
     store_body(h);
-
-    //UART1_putchar('D');////////////////
 }
 
 static inline Header_data check_header(void)
