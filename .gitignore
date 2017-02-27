@@ -13,3 +13,6 @@ ubuntu-xenial-16.04-cloudimg-console.log
 
 #ignore compiled python files
 *.pyc
+
+#ignore .log files
+*.log
