@@ -16,3 +16,14 @@ ubuntu-xenial-16.04-cloudimg-console.log
 
 #ignore .log files
 *.log
+
+# Ignore Vim swap files
+*.swp
+*.swo
+
+# Ignore object files and binaries
+*.o
+*.elf
+
+# Ignore firmware images
+FW_*
