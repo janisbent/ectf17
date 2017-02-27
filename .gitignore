@@ -27,3 +27,6 @@ ubuntu-xenial-16.04-cloudimg-console.log
 
 # Ignore firmware images
 FW_*
+
+# Ignore virtual box logs
+*.log
