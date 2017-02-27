@@ -59,10 +59,8 @@ def receive_data(num_bytes, datafile, debug):
         print data.encode('hex')
 
         # Write raw data to file if specified
-        try:
+        if datafile != None:
             datafile.write(data)
-        except NameError:
-            continue
             
         ser.write(RESP_OK)
 
@@ -87,6 +85,8 @@ if __name__ == '__main__':
 
     if args.datafile:
         datafile = open(args.datafile, 'wb+')
+    else:
+        datafile = None
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     ser = serial.Serial(args.port, baudrate=115200, timeout=2)
@@ -106,5 +106,5 @@ if __name__ == '__main__':
         sys.exit("Bootloader rejected request")
 
     # Receive and print data
-    receive_data(num_bytes, datafile, debug)
+    receive_data(num_bytes, datafile, args.debug)
 

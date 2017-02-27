@@ -298,7 +298,7 @@ static inline void load_firmware(void)
 
     // Write new firmware sizes to EEPROM.
     wdt_reset();
-    eeprom_update_word(&fw_size, h.body_size);
+    eeprom_update_word(&fw_size, h.body_size - 1);
     wdt_reset();
 
     // Get and store body data
