@@ -123,7 +123,7 @@ static inline void boot_firmware(void)
 
     // Write out the release message.
     uint8_t cur_byte;
-    uint32_t message_addr = (uint32_t)eeprom_read_word(&fw_size);
+    uint32_t message_addr = (uint32_t)eeprom_read_word(&fw_size) - 1;
 
     // Reset if firmware size is 0 (indicates no firmware is loaded).
     if (message_addr == 0)
