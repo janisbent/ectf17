@@ -137,8 +137,5 @@ if __name__ == '__main__':
     for i in range(numFrames):
         sendFrame(ser, data, args.debug)
 
-    while True:
-        print ser.read()
-        
     print("Done writing firmware.")
 
