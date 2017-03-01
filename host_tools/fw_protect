@@ -39,12 +39,17 @@ if __name__ == '__main__':
     firmware.write_hex_file(sio)
     hex_data = sio.getvalue()
 
+    ## ENCRYPT ENTIRE HEX DATA IN 16B CHUNKS
+    ## PAD LAST FRAME RANDOMLY
+
     # Encode the data as json and write to outfile.
     data = {
         'firmware_size' : firmware_size,
         'version' : version,
         'hex_data' : hex_data
     }
+
+    ## ENCRYPT DATA INTO 16B FRAME
 
     with open(args.outfile, 'wb+') as outfile:
         data = json.dumps(data)
