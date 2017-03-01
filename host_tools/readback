@@ -18,21 +18,18 @@ import serial
 import struct
 import sys
 import argparse
+from math import ceil
+
+from helpers.Crypt import Crypt, FRAME_SIZE
 
 RESP_OK = b'\x00'
-RESP_ERROR = b'\x01'
+RESP_RT = b'\x99'
+RESP_ER = b'\xFF'
 
 def construct_request(start_addr, num_bytes):
-    # Read in secret password from file.
-    SECRET_PASSWORD = ''
-    try:
-        with open('secret_configure_outpt.txt', 'rb') as secret_file:
-            SECRET_PASSWORD = secret_file.read()
-    except:
-        pass # File not found
+    request = struct.pack('>II', start_addr, num_bytes)
 
-    return struct.pack('>II', start_addr, num_bytes)
-
+    return crypt.encode(request)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
@@ -59,8 +56,11 @@ if __name__ == '__main__':
     ser.write(request)
 
     # Read the data and write it to stdout (hex encoded).
-    data = ser.read(int(args.num_bytes))
-    print(data.encode('hex'))
+    numReadBytes = int(ceil(int(args.num_bytes) % float(FRAME_SIZE)))
+
+    data = ser.read(numReadBytes)
+    decryptedData = crypt.decode(data)
+    print(decryptedData.encode('hex'))
 
     # Write raw data to file (optional).
     if args.datafile:
