@@ -58,6 +58,6 @@ clean:
 	$(RM) -v *.hex *.o *.elf $(MAIN)
 
 yes: uart.o yes.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o yes.elf uart.o yes.o
+	$(CC) $(CDEFS) $(CWARN) $(COPTS) -nostartfiles $(INCLUDES) -o yes.elf uart.o yes.o
 	$(STRIP) yes.elf -o yes.elf
 	$(OBJCOPY) -O ihex yes.elf yes.hex

@@ -29,8 +29,8 @@ int main(void)
 
 	while (1) {
 		UART1_putchar('Y');
-		_delay_ms(1);
+		_delay_ms(100);
 		UART1_putchar('\n');
-		_delay_ms(1);
+		_delay_ms(100);
 	}
 }
