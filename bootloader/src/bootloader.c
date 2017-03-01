@@ -56,7 +56,7 @@ typedef struct header {
     uint16_t version;
     uint16_t fw_size;
     uint16_t msg_size;
-}
+};
 
 int main(void)
 {

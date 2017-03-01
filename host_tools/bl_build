@@ -10,6 +10,7 @@ import random
 import shutil
 import subprocess
 import sys
+import struct
 
 from intelhex import IntelHex
 from helpers.Crypt import Crypt
@@ -29,7 +30,9 @@ def make_bootloader():
     subprocess.call('make clean', shell=True)
     # Call make in subprocess to build bootloader.
     crypt = Crypt(FILE_DIR)
-    status = subprocess.call('make AES_KEY="%s"' % crypt.getKey(), shell=True)
+    key = crypt.getKey()
+
+    status = subprocess.call('make AES_KEY="%s"' % key, shell=True)
 
     # Return True if make returned 0, otherwise return False.
     return (status == 0)
@@ -57,8 +60,7 @@ def write_fuse_file(fuse_name, fuse_value):
         hex_file.tofile(outfile, format='hex')
 
 if __name__ == '__main__':
-    password = generate_readback_password()
-    if not make_bootloader(password=password):
+    if not make_bootloader():
         print "ERROR: Failed to compile bootloader."
         sys.exit(1)
     copy_artifacts()

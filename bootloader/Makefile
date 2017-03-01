@@ -17,7 +17,7 @@ PROGRAMMER = dragon_jtag
 #  NOTE: The debug options shoud only affect the .elf file. Any debug symbols are stripped 
 #  from the .hex file so no debug info is actually loaded on the AVR. This means that removing 
 #  debug symbols should not affect the size of the firmware.
-CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DAES_KEY=\"${AES_KEY}\"
+CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DAES_KEY="${AES_KEY}"
 
 # Description of CLINKER options:
 # 	-Wl,--section-start=.text=0x1E000 -- Offsets the code to the start of the bootloader section
