@@ -1,0 +1,18 @@
+UPDATE:
+
+HOST TOOLS                  BOOTLOADER
+Header size 2B      >
+Header      16B     >
+                    <       OK
+
+
+READBACK:
+
+HOST TOOLS                  BOOTLOADER
+Header size 2B      >
+Header      16B     >
+                    <       OK
+                    <       Size    2B   \ loop for all data
+                    <       Frame   16B /
+
+
