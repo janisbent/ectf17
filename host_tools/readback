@@ -56,7 +56,7 @@ if __name__ == '__main__':
     ser.write(request)
 
     # Read the data and write it to stdout (hex encoded).
-    numReadBytes = int(ceil(int(args.num_bytes) % float(FRAME_SIZE)))
+    numReadBytes = int(ceil(int(args.num_bytes) / float(FRAME_SIZE)))
 
     data = ser.read(numReadBytes)
     decryptedData = crypt.decode(data)
