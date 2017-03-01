@@ -41,8 +41,7 @@ if __name__ == '__main__':
     # Add release message to end of hex (null-terminated).
     sio = StringIO()
     firmware.putsz(firmware_size, (args.message + '\00'))
-    firmware.write_hex_file(sio)
-    hex_data = sio.getvalue()
+    hex_data = firmware.tobinstr()
 
     headerStruct = struct.pack('>HHH', firmware_size, len(args.messge) + 1, version)
 
