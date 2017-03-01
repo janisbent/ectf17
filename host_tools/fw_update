@@ -19,86 +19,67 @@ just a zero
 """
 
 import argparse
+import json
 import serial
 import struct
 import sys
+import zlib
 import time
-import os
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from math import ceil
 
 RESP_OK = b'\x00'
-RESP_ER = b'\x01'
-RESP_AB = b'\xff'
-
-FILE_DIR = os.path.abspath(os.path.dirname(__file__))
-FRAME_SIZE = 512
- 
-def readFile(fileName):
-    with open(fileName, 'rb') as file:
-        data = file.read()
-
-    return data
-
-def sendHeader(ser, data, debug):
-    print "Writing header...  "
-
-    #print "Should be R: " + ser.read()#################
-    #print "Should be R: " + ser.read()#################
-
-    frame = data[0 : FRAME_SIZE]
-    #print "Should be S: " + ser.read()#################
-    ser.write(frame)
-    #print "Should be E: " + ser.read()#################
-
-    # Check valid decryption
-    resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request decrypt: " + resp)
-
-    # Check version pass
-    resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request version: " + resp)
-
-    if debug:
-        print "Header accepted!"
-        
-    #print "Body size: " + ser.read(2).encode('hex')
 
 
-def sendFrame(ser, data, debug):
-    frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
+class Firmware(object):
+    """
+    Helper for making frames.
+    """
 
-    if debug:
-        print "Writing frame {} ({} bytes)...".format(i, len(frame))
+    BLOCK_SIZE = 16
 
-    #print "Should be R: " + ser.read()#################
+    def __init__(self, fw_filename):
+        with open(fw_filename, 'rb') as fw_file:
+            data = fw_file.read()
+            data = zlib.decompress(data)
+            data = json.loads(data)
+            self.version = data['version']
+            self.size = data['firmware_size']
+            self.hex_data = StringIO(data['hex_data'])
 
-    resp = RESP_ER
-    while resp != RESP_OK:
-        #print "Should be S: " + ser.read()#################
-        ser.write(frame)  # Write the frame...
-        #print "Should be E: " + ser.read()#################
+        self.reader = IntelHex(self.hex_data)
 
-        if debug:
-            print(frame).encode('hex')
+    def frames(self):
+        # The address is not sent, so we currently only support a single segment
+        # starting at address 0.
+        if len(self.reader.segments()) > 1:
+            raise RuntimeError("ERROR: Hex file contains multiple segments.")
 
-        resp = ser.read()  # Wait for an OK from the bootloader
-    
-        if debug:
-            print "Response: {}".format(ord(resp))
+        for segment_start, segment_end in self.reader.segments():
 
-        time.sleep(0.1)
+            if segment_start != 0:
+                raise RuntimeError("ERROR: Segment in Hex file does not start at address 0.")
 
-        if resp == RESP_OK:
-            continue
-        elif resp == RESP_AB:
-            raise RuntimeError("\nERROR: Bootloader responded with {}".format(repr(resp)))
-        else:
-            print("\tRetrying...")
+            # Construct frame from data and length.
+            for address in range(segment_start, segment_end, self.BLOCK_SIZE):
+
+                # Frame should be BLOCK_SIZE unless it is the last frame.
+                if address + self.BLOCK_SIZE <= segment_end:
+                    data = self.reader.tobinstr(start=address,
+                                                size=self.BLOCK_SIZE)
+                else:
+                    data = self.reader.tobinstr(start=address,
+                                                size=segment_end - address)
+                # Get length of frame.
+                length = len(data)
+                frame_fmt = '>H{}s'.format(length)
+
+                # Construct frame.
+                yield struct.pack(frame_fmt, length, data)
+
+    def close(self):
+        self.reader.close()
 
 
 if __name__ == '__main__':
@@ -114,28 +95,51 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2) 
+    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
 
-    # Open firmware file.
+    # Open our firmware file.
     print('Opening firmware file...')
-    data = readFile(args.firmware)
+    firmware = Firmware(args.firmware)
+    print('Version: {}'.format(firmware.version))
+    print('Size: {} bytes (not including release message)'.format(firmware.size))
 
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
 
-    # Send header
-    sendHeader(ser, data, args.debug)
+    # Send size and version to bootloader.
+    metadata = struct.pack('>HH', firmware.version, firmware.size)
+    if args.debug:
+        print(metadata.encode('hex'))
+    ser.write(metadata)
 
-    numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
-    if numFrames == 1:
-        print "Writing 1 frame..."
-    else:
-        print "Writing " + str(numFrames) + " frames (" + str(len(data)) + "bytes)..."
+    # Wait for an OK from the bootloader.
+    resp = ser.read()
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
-    # Send frames
-    for i in range(numFrames):
-        sendFrame(ser, data, args.debug)
+    for idx, frame in enumerate(firmware.frames()):
+        if args.debug:
+            print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
+
+        ser.write(frame)  # Write the frame...
+
+        if args.debug:
+            print(frame.encode('hex'))
+
+        resp = ser.read()  # Wait for an OK from the bootloader
+
+        time.sleep(0.1)
+
+        if resp != RESP_OK:
+            raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+
+        if args.debug:
+            print("Resp: {}".format(ord(resp)))
 
     print("Done writing firmware.")
+
+    # Send a zero length payload to tell the bootlader to finish writing
+    # it's page.
+    ser.write(struct.pack('>H', 0x0000))
 

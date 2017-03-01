@@ -12,11 +12,10 @@ import subprocess
 import sys
 
 from intelhex import IntelHex
-#from helpers.Crypt import Crypt
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-def make_bootloader():
+def make_bootloader(password=None):
     """
     Build the bootloader from source.
 
@@ -27,14 +26,11 @@ def make_bootloader():
     os.chdir('../bootloader')
 
     subprocess.call('make clean', shell=True)
-
-#    crypt = Crypt(FILE_DIR)
-
-    publicKey = ''#crypt.getKey(crypt.FACTORY_KEY).publickey().exportKey().replace("\n", '').replace(" ", "\ ")
-    privateKey = ''#crypt.getKey(crypt.BOOTLOADER_KEY).exportKey().replace("\n", '').replace(" ", "\ ")
-
     # Call make in subprocess to build bootloader.
-    status = subprocess.call('make PUBLIC_KEY="' + publicKey + '" PRIVATE_KEY="' + privateKey + '"', shell=True)
+    if password is not None:
+        status = subprocess.call('make PASSWORD="%s"' % password, shell=True)
+    else:
+        status = subprocess.call('make')
 
     # Return True if make returned 0, otherwise return False.
     return (status == 0)
@@ -53,6 +49,19 @@ def copy_artifacts():
     shutil.copy(os.path.join(src_dir, 'flash.hex'), dst_dir)
     shutil.copy(os.path.join(src_dir, 'eeprom.hex'), dst_dir)
 
+def generate_readback_password():
+    """
+    Generate secret password for readback tool and store to secret file.
+    """
+    # Generate 16 character random password.
+    pw = ''.join(chr(random.randint(0, 255)) for i in range(8)).encode('hex')
+
+    # Write password to secret file.
+    with open('secret_build_output.txt', 'wb+') as secret_build_output:
+        secret_build_output.write(pw)
+
+    return pw
+
 def write_fuse_file(fuse_name, fuse_value):
     hex_file = IntelHex()
     hex_file[0] = fuse_value
@@ -61,11 +70,12 @@ def write_fuse_file(fuse_name, fuse_value):
         hex_file.tofile(outfile, format='hex')
 
 if __name__ == '__main__':
-    if not make_bootloader():
+    password = generate_readback_password()
+    if not make_bootloader(password=password):
         print "ERROR: Failed to compile bootloader."
         sys.exit(1)
     copy_artifacts()
     write_fuse_file('lfuse', 0xFF)
-    write_fuse_file('hfuse', 0xD8)
+    write_fuse_file('hfuse', 0x18)
     write_fuse_file('efuse', 0xFC)
 

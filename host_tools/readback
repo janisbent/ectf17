@@ -3,13 +3,14 @@
 Memory Readback Tool
 
 A frame consists of four sections:
-1. The variable-length NONCE.
-2. Four bytes for the start address.
-3. Four bytes for the number of bytes to read.
+1. One byte for the length of the password.
+2. The variable-length password.
+3. Four bytes for the start address.
+4. Four bytes for the number of bytes to read.
 
-[ variable ]  [ 0x04 ]       [ 0x04 ]
+  [ 0x01 ]  [ variable ]  [ 0x04 ]    [ 0x04 ]
 -------------------------------------------------
-| NONCE       | Start Addr | Num Bytes |
+| PW Length | Password | Start Addr | Num Bytes |
 -------------------------------------------------
 """
 
@@ -17,34 +18,20 @@ import serial
 import struct
 import sys
 import argparse
-import os
-from math import ceil
-from helpers.Crypt import Crypt
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
-FRAME_SIZE = 512
-PAGE_SIZE = 256
-
-crypt = Crypt(os.path.abspath(os.path.dirname(__file__)))
-
-def decrypt(cyphertext):
-    key = "Hello world!"
-    plaintext = ""
-
-    for i in range(len(cyphertext)):
-        plaintext += str(ord(cyphertext[i]) ^ ord(key[i % len(key)]))
-
-    return plaintext
-
-
 
 def construct_request(start_addr, num_bytes):
     # Read in secret password from file.
+    SECRET_PASSWORD = ''
+    try:
+        with open('secret_configure_outpt.txt', 'rb') as secret_file:
+            SECRET_PASSWORD = secret_file.read()
+    except:
+        pass # File not found
 
-    packData = struct.pack('>II', start_addr, num_bytes)
-
-    return packData
+    return struct.pack('>II', start_addr, num_bytes)
 
 
 if __name__ == '__main__':
@@ -54,20 +41,12 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument("--address", help="First address to read from.",
                         required=True)
-
     parser.add_argument("--num-bytes", help="Number of bytes to read.",
                         required=True)
     parser.add_argument("--datafile", help="File to write data to (optional).")
-    parser.add_argument("--debug", help="Enable debug messages (optional).", 
-                        action="store_true")
-    parser.set_defaults(debug=False)
-
     args = parser.parse_args()
 
-    num_bytes = int(args.num_bytes)
-
-    if args.datafile:
-        datafile = open(args.datafile, 'wb+')
+    request = construct_request(int(args.address), int(args.num_bytes))
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     ser = serial.Serial(args.port, baudrate=115200, timeout=2)
@@ -76,44 +55,14 @@ if __name__ == '__main__':
     while ser.read(1) != 'R':
         pass
 
-    # build and encrypt request
-    request = construct_request(int(args.address), int(args.num_bytes)).ljust(FRAME_SIZE)
-#    request = crypt.encrypt(request)
-
-#    request = decrypt(request).ljust(FRAME_SIZE)
-
     # Send the request.
     ser.write(request)
 
-    # Exit if bootloader rejects request
-
-    if ser.read(1) != RESP_OK:
-        sys.exit("Bootloader rejected request")
-
     # Read the data and write it to stdout (hex encoded).
-    for i in range(int(ceil(num_bytes / float(PAGE_SIZE)))):
-        # Accept last, impartial frame
-        if num_bytes - (i * PAGE_SIZE) < PAGE_SIZE:
-            # Print debug message
-            if args.debug:
-                sys.stderr.write("Reading partial frame: {} bytes\n".format(num_bytes % PAGE_SIZE))
-            data = ser.read(num_bytes % PAGE_SIZE)
-        # Accept full frame
-        else:
-            # Print debug message
-            if args.debug:
-                sys.stderr.write("Reading full frame: {} bytes\n".format(PAGE_SIZE))
+    data = ser.read(int(args.num_bytes))
+    print(data.encode('hex'))
 
-            data = ser.read(PAGE_SIZE)
-            
-#        data = crypt.decode(data)
-#        data = decrypt(data)
-#        print data 
-        print data.encode('hex')
-
-        # Write raw data to file (optional).
-        if args.datafile:
+    # Write raw data to file (optional).
+    if args.datafile:
+        with open(args.datafile, 'wb+') as datafile:
             datafile.write(data)
-            
-        ser.write(RESP_OK)
-
