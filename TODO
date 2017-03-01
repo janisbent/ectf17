@@ -1,0 +1,13 @@
+fw_update:
+    Possibly retry
+
+fw_protect:
+    Encrypt entire data in 16B frames
+
+bootloader:
+    Add decryption to reading frame
+        Pull UART_getchar to single functions
+        Add verification
+        Add possibility of rejection
+    Add encryption to readback response
+        Break readback into 16B frames
