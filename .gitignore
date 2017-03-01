@@ -3,6 +3,7 @@
 
 # Ignore other build files
 */*.map
+secret_build_output.txt
 
 
 # Local settings should not be committed to git.

@@ -3,9 +3,6 @@ MCU = atmega1284p
 F_CPU = 20000000
 BAUD = 115200
 
-# Secret password default value.
-PASSWORD ?= password
-
 # Tool aliases.
 CC = avr-gcc
 STRIP  = avr-strip
@@ -20,7 +17,7 @@ PROGRAMMER = dragon_jtag
 #  NOTE: The debug options shoud only affect the .elf file. Any debug symbols are stripped 
 #  from the .hex file so no debug info is actually loaded on the AVR. This means that removing 
 #  debug symbols should not affect the size of the firmware.
-CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
+CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DAES_KEY=\"${AES_KEY}\"
 
 # Description of CLINKER options:
 # 	-Wl,--section-start=.text=0x1E000 -- Offsets the code to the start of the bootloader section
