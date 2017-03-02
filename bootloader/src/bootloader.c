@@ -76,6 +76,12 @@ int main(void)
     // Enable pullups - give port time to settle.
     PORTB |= (1 << PB2) | (1 << PB3);
 
+    UART1_putchar(0x66);
+    UART1_putchar(0x66);
+    UART1_putchar(0x66);
+    UART1_putchar(0x66);
+    UART1_putchar(0x66);
+    UART1_putchar(0x66);
     encryption_test();
 
     // If jumper is present on pin 2, load new firmware.
@@ -96,10 +102,13 @@ int main(void)
     }
 } // main
 
+unsigned char KEY[] EEMEM = "1234567890123456\0";
+#define BUFF_LEN 16
+
 void encryption_test() 
 {
-    uint8_t init_data[16];
-    uint8_t recv_data[16];
+    uint8_t dec_data[16];
+    uint8_t enc_data[16];
     
     //UART1_putchar(0x77);
     /*for (int i = 0; i < 16; i++) {
@@ -111,12 +120,54 @@ void encryption_test()
         UART1_putchar(init_data[i]);
     }*/
     for (uint8_t i = 0; i < 16; i++) {
-        init_data[i] = i;
+        dec_data[i] = i;
     //    UART1_putchar(init_data[i]);
     }
 
-    encrypt(init_data, recv_data);
-    decrypt(recv_data, init_data);
+    uint8_t key[17];
+
+    for (int i = 0; i < 17; i++) {
+        key[i] = eeprom_read_byte(&(KEY[i]));
+    }
+    for (int i = 0; i < BUFF_LEN; i++) {
+        UART1_putchar(dec_data[i]);
+    }
+    AES128_ECB_encrypt(dec_data, key, enc_data); 
+    wdt_reset();
+
+    for (int i = 0; i < 17; i++) {
+        key[i] = eeprom_read_byte(&(KEY[i]));
+    }
+
+    //encrypt(init_data, recv_data);
+    UART1_putchar(0xcc);
+    UART1_putchar(0xcc);
+    UART1_putchar(0xcc);
+    for (int i = 0; i < BUFF_LEN; i++) {
+        UART1_putchar(key[i]);
+    }
+    UART1_putchar(0xee);
+    UART1_putchar(0xee);
+    UART1_putchar(0xee);
+    for (int i = 0; i < BUFF_LEN; i++) {
+        UART1_putchar(enc_data[i]);
+    }
+
+    AES128_ECB_decrypt(enc_data, key, dec_data);
+
+    UART1_putchar(0xdd);
+    UART1_putchar(0xdd);
+    UART1_putchar(0xdd);
+    for (int i = 0; i < BUFF_LEN; i++) {
+        UART1_putchar(dec_data[i]);
+    }
+    //UART1_putchar(0xff);
+    //UART1_putchar(0xff);
+    //UART1_putchar(0xff);
+    while (1) {
+        continue;
+    }
+    //decrypt(enc_data, dec_data);
 }
 
 /***********************************************

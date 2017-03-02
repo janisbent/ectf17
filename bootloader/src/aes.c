@@ -449,7 +449,6 @@ static void BlockCopy(uint8_t* output, const uint8_t* input)
 /*****************************************************************************/
 /* Public functions:                                                         */
 /*****************************************************************************/
-#if defined(ECB) && ECB
 
 
 void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* output)
@@ -484,6 +483,12 @@ void AES128_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *outpu
   BlockCopy(output, input);
   state = (state_t*)output;
 
+  for (int i = 0; i < 256; i++) {
+    sbox[i] = eeprom_read_byte(&(Sbox[i]));
+    rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
+    Rcon[i] = eeprom_read_byte(&(rcon[i]));
+  }
+
   // The KeyExpansion routine must be called before encryption.
   Key = key;
   KeyExpansion();
@@ -492,5 +497,4 @@ void AES128_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *outpu
 }
 
 
-#endif // #if defined(ECB) && ECB
 
