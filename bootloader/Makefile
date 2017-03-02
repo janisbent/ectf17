@@ -83,6 +83,14 @@ debug: flash.hex eeprom.hex
 	# in .gdbinit
 	avr-gdb
 
+yes.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c tests/yes.c
+
+yes: uart.o yes.o
+	$(CC) $(CDEFS) $(CWARN) $(COPT) -nostartfiles $(INCLUDES) -o yes.elf uart.o yes.o
+	$(STRIP) yes.elf -o yes.elf
+	$(OBJCOPY) -O ihex yes.elf yes.hex
+
 clean:
 	$(RM) -v *.hex *.o *.elf $(MAIN)
 

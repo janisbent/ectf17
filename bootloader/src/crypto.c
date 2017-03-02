@@ -11,6 +11,7 @@
 
 #define BUFF_LEN 16
 const unsigned char KEY[] = "1234567890123456";
+// const unsigned char KEY[] = AES_KEY;
 
 /* Assumes the buffer's length is 16 bytes */ 
 void decrypt(uint8_t *enc_data, uint8_t *dec_data)

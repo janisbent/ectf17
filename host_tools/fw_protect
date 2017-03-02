@@ -8,6 +8,7 @@ import shutil
 import struct
 import json
 import zlib
+import os
 from math import ceil
 
 from cStringIO import StringIO
@@ -43,7 +44,7 @@ if __name__ == '__main__':
     firmware.putsz(firmware_size, (args.message + '\00'))
     hex_data = firmware.tobinstr()
 
-    headerStruct = struct.pack('>HHH', firmware_size, len(args.messge) + 1, version)
+    headerStruct = struct.pack('>HHH', firmware_size, len(args.message) + 1, version)
 
     numFrames = int(ceil(len(hex_data) / float(FRAME_SIZE)))
 

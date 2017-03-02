@@ -18,11 +18,13 @@ class Crypt:
 	def __init__(self, directory):
 		sf = SecretFile(directory)
 
-		self.key = sf.getKey()
-		if self.key is None:
-			self.key = get_random_bytes(16)
-			sf.setKey(self.key);
-			sf.flush()
+		self.key = "1234567890123456"
+
+		# self.key = sf.getKey()
+		# if self.key is None:
+		# 	self.key = get_random_bytes(16)
+		# 	sf.setKey(self.key);
+		# 	sf.flush()
 
 	def getKey(self):
 		return self.key
@@ -41,7 +43,7 @@ class Crypt:
 		return cipher.decrypt(msg)
 
 	def randomPadToSize(self, msg, size=FRAME_SIZE):
-		if lsn(msg) == size:
+		if len(msg) == size:
 			return msg
 
 		return msg + get_random_bytes(size - len(msg))

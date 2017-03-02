@@ -62,7 +62,7 @@ if __name__ == '__main__':
             pass
 
         frameNum = 0
-        for frame in iter(lambda: fp.read(FRAME_SIZE), ''):
+        for frame in iter(lambda: firmware.read(FRAME_SIZE), ''):
             if frameNum == 0:
                 print("Writing header...")
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
             if args.debug:
                 print(frame.encode('hex'))
 
-            ser.write(metadata)
+            ser.write(frame)
 
             # Wait for an OK from the bootloader.
             resp = ser.read()
