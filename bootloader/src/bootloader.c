@@ -41,7 +41,7 @@
 #include "uart.h"
 
 #define OK    ((unsigned char)0x00)
-#define ERROR ((unsigned char)0x01)
+#define ERROR ((unsigned char)0xFF)
 
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
