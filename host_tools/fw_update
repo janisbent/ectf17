@@ -72,7 +72,8 @@ if __name__ == '__main__':
             if args.debug:
                 print(frame.encode('hex'))
 
-            ser.write(frame)
+            frameSize = struct.pack(">H", len(frame))
+            ser.write(frameSize + frame)
 
             # Wait for an OK from the bootloader.
             resp = ser.read()
