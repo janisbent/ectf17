@@ -30,7 +30,7 @@ def make_bootloader():
     subprocess.call('make clean', shell=True)
     # Call make in subprocess to build bootloader.
     crypt = Crypt(FILE_DIR)
-    key = crypt.getKey()
+    key = crypt.getAESKey()
 
     status = subprocess.call('make AES_KEY="%s"' % key, shell=True)
 

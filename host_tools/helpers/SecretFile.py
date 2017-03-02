@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 """
-Represents secret_configure_output.txt. Allows for the access and writing of all values needed
+Represents secret_build_output.txt. Allows for the access and writing of all values needed
 
 """
 
 import os
 import json
 
-FILE_NAME = "secret_configure_output.txt"
+FILE_NAME = "secret_build_output.txt"
 
 class SecretFile:
 
