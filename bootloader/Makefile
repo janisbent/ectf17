@@ -37,7 +37,58 @@ INCLUDES = -I./include
 .PHONY: clean
 
 all:    flash.hex eeprom.hex
-	@/bin/echo -e "\xf0\x9f\x94\xa5  Tufts bootloader has been compiled and packaged as intel hex  \xf0\x9f\x94\xa5"
+	@/bin/echo -e "\xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 "
+	@/bin/echo -e "\xf0\x9f\x94\xa5 Tufts bootloader has been compiled and packaged as intel hex\xf0\x9f\x94\xa5"
+	@/bin/echo -e "\xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 \xf0\x9f\x94\xa5 "
+	@/bin/echo -e '++ooooooooooosssssssooo++oyh+.```````````````````````````````````````````````````````````.sm++sssss+\
+oooooosyyyyyyysoooooooo+yh:                                                                om+oossoo\
+ssyysssoooooooooooooooodo`                                                                  hdosssss\
+oooo+ooooooooooooooooomo                                                                    /Nsosssy\
+ooooooooooooosssooooosN.      :ohs/:``+ .  /so:       o`:oo.      /+++.` .. - `/o/          -Msssyyh\
+ooooooooosssssssssssoym         d. ysom`h.`ys+.       d.+so/     `d+-` y od-m-hs+y.         :Mssssss\
+oosysoooooooooooooooooN-        h` y+:d`h- :oyo      `m.-+oy`    `d+. `m o+/h/h:-- :.       smosssss\
+oooosyyyhhhhyhhhhhddddmd`       `  `` ` -`  `.        :  ..       -    : ``   -//- .`      .myoossss\
++oooooooosyhhhddhhysoo+yh-                                                                `hhyhddddd\
++ooo++++++++++/+++oosssosdy-                                                             -hy/++oooos\
+/++++++++/++///////+/+ssooshho:`                                                      -+yh+:/oosssss\
+oosoo+++oooosyhhyhyossyso+/++syhyso/:..````                                    `.-+oyhhyo++//+++oooo\
+-::/+oooooo++/--+hhooooshdysosssssyhmdhssyyyyysssyyyys`   .-----::://////+oossyhhyss++++shdmdhyyssss\
+...............sy+////////sd+:+++++/::--------------+N.  `d+/++++//://syss+++++/++++oosyhddy/+oosyys\
+............../m///:////////y:.-::-...............--+m`  -m............--:+ssyyyyhhhhyo+::---+do....\
+..............sh:////://oosshdssosy/.......`........sh   /h.........--....-....------.....--:d/os-.-\
+...:y/........oh://oyhdmNNNNmy+:///h/...............d+  `h/........-.------.....---.....----yo--+y/:\
+.-+sm:.......-/msdmNNNNNNNmy+:/://:ho`.............-N.  oo............................-----yo:---/yo\
+.oo/d-.../+-ssooosyddmmmhs///:///:om/..............+d  +s..............................--/y+------.+\
+o+-oh-../sod+::/:////////////://oys/oys/..........`s+`oo................`s+...........-/ss/---::+. `\
+/--oy--++s+m/:/+oo++/////++oosyso/////+yy+...`...`-d-s+.................:yy:........./ss/-----:-h-`-\
+---oh-/s-o++yo+/oh+ossyysso+++/////////:/yy-...`..yyo-.................:h:+y-.....-/ss/--:/----+:o::\
+-:-:m:h/-:s--:/sd+////////////::::////+++/o+++/-`-+-..................:s/-:d-...-+s+:---:so---/+-:o/\
+/+:-oyh:::++--/do//////+osssso+/////+s:` ./ososy:`.................../o/---d-.-+s+:----/oo/--//---:o\
+//:--++:++:++hmNs////+s+:--.--:oso//s.  /dmmmmmdm-..................//-----h:/s+------++:s-:/:-----.\
+::/---:/::+dmmNNd///o+`   ./++:.`/yy`  /mmmmmmmmNo..........-:://:--..-o:--shs:-----/+::-o/:-----...\
+--/:-:/-:ymmmmNNm///s    +dmmmmms.-d`  hmmmmmmmmNo......`:oydmmmmmmh/-:/o-::s:----/o/---:o:------:-:\
+---//:-/hNmmmmNNN+/y-   /mmmmmmmmh.h:  ymmmmmmmmm:-/+osyhNNNmmmmmmmmms--s::-----/o/--------------/-:\
+---:/-ommmmmmmNMMs/d.   smmmmmmmmm+h+  -dmmmmmdmdso+++sNNNNNmmmmmmmmNh--/+----:o/---------------/:-:\
+-----smNmmmmmNNMMh/s+   :mmmmmmmmmsdyo-.-/ososhy+:/:/hNNMNNNmmmmmmmmm/---o/--/o-..-----------:--+--:\
+----smmmmmmmmNNMMd//h/   +mmmmmmmmdo:+osssssys+////:+NMMNNNNmmNNNNNN+-----o/:o-..-----------:--/---:\
+---:mmmmmmmmmmNMMm///ys:.`-oyhdhddo/////////////////+NMMNNNNNNNNNmhd-------+s:-------------:--//---:\
+---ommmmmmmmmNNMMd////+sysssssyyo////////////////////smNNMMMNNNds/y+-----..-------....----:--:/----:\
+.--smmmmmmmmmNNNMy////////////////+++//////////////////osyyyso/:/ys-----.-------....-.-------/-----:\
+---+NmmmmmmmmNNNN+/////////////+sssdy++///////////////////////+sho-----.------....-...-------------:\
+---.hmmNNmmmNNMNo////////////ohyso.-ohdyyso++///////////+ossyys+-------.----..-----.---------------:\
+-:/:/dNNNNNNNNmo////++//////+o+ysoooodd:/+hhhdhhyyyyyyhhso++/---------/----------------------------:\
+yddhhdoshdddNs+/////////////////shso+yNmddmyyd/y-...`.y:--:+---------::---------::::::////:////----:\
+/++od+/////yy////////////////////+shyyNNNNNNm++s-....y/--:o-.--------/--------oyyysssosooo++++ho----\
+//+do++++/om+++++//+o///++++/+++////+oshhdhs++y+y/..h+---o:---------::-::-----yooyhdhhdddddddyhh/++:\
+//+m+////oms+++yo++sh+++++++/+++++//////+osyhh:-:s++h---//----------/--/------s+..-/+osooo+/--/m---+\
+///N/:::/hd/+++d+++yh++++++++++++++////+soo++m:-::ym/---s----------:--/:------y+..............:Nms.-\
+//+M::::/Ns////m+++yd+++++++++++++++/++/+/+//sd::::o---/+---------:--//-------sy............../Nh+.-\
+//sM::::+N+///+N///yd+++++++++++++++++++++++//mo:+:---:o------------//--:-----od.........-----od++os\
+//sM::::oN+///+M///sm/+++++++++++++++++++++++/hd-:+:-:o:-----------::--:-----./m...-----------yhyyyy\
+//sM::::oN+///+No///Mo//++++++++++++++++++++++yN:::/+++::::::::----:::-.-:/+sssmo+/::::------:m/////\
+/:sN:::/+No////dh///dh//////++++++++++++++++++hm:::::/::::--::-----:+oyyyys+/:::+oosyysyyyyyyyo/////\
+::sm::///dh////oN+//+mo/////////////////+++//+mo---:::::::-::::---/hNy+//////////////:://///////////\
+++om/++++omooooodmoooymoooooooooooooooooooooodd::///////+/++o+///oNyhdooooooo+oo++++++++oooo++o++ooo'
 
 uart.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
