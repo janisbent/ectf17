@@ -2,17 +2,22 @@ UPDATE:
 
 HOST TOOLS                  BOOTLOADER
 Header size 2B      >
+DSA key 	40B   	>
 Header      16B     >
-                    <       OK
+                    <       OK/ER/AB
+Frame size	2B		>					\
+DSA key		40B		>					 | Loop
+Frame		256		>					 |
+					<		OK/ER/AB	/
 
 
 READBACK:
 
 HOST TOOLS                  BOOTLOADER
 Header size 2B      >
+DSA key 	40B   	>
 Header      16B     >
-                    <       OK
-                    <       Size    2B   \ loop for all data
-                    <       Frame   16B /
+                    <       OK/AB
+                    <       Frame   16B } loop for all frames
 
 
