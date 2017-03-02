@@ -37,7 +37,7 @@ INCLUDES = -I./include
 .PHONY: clean
 
 all:    flash.hex eeprom.hex
-	@echo  Simple bootloader has been compiled and packaged as intel hex.
+	@/bin/echo -e "\xf0\x9f\x94\xa5  Tufts bootloader has been compiled and packaged as intel hex  \xf0\x9f\x94\xa5"
 
 uart.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
@@ -45,12 +45,18 @@ uart.o:
 sys_startup.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sys_startup.c
 
-bootloader.o:
+aes.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c
+
+crypto.o: aes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/crypto.c
+
+bootloader.o: crypto.o
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o crypto.o aes.o
         # Create an .elf file for the bootloader with all debug symbols included.
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o crypto.o aes.o
 
 strip: bootloader_dbg.elf
 	# Create a version of the bootloder .elf file with all the debug symbols stripped.

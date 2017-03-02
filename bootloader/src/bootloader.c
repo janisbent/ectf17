@@ -48,6 +48,8 @@ void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
 void encryption_test();
+void read_frame(unsigned char *data);
+void send_frame(unsigned char *data, int size);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
@@ -56,7 +58,7 @@ typedef struct header {
     uint16_t version;
     uint16_t fw_size;
     uint16_t msg_size;
-};
+} header;
 
 int main(void)
 {
@@ -197,7 +199,7 @@ void readback(void)
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
-void read_frame(unsigned char data[])
+void read_frame(unsigned char *data)
 {
     int frame_len;
     unsigned char frame[16];
@@ -215,7 +217,7 @@ void read_frame(unsigned char data[])
     UART1_putchar(OK);
 }
 
-void send_frame(unsigned char data[], int size)
+void send_frame(unsigned char *data, int size)
 {
     unsigned char frame[16];
 
@@ -239,6 +241,7 @@ void send_frame(unsigned char data[], int size)
 void load_firmware(void)
 {
     int frame_len = 0;
+    uint8_t rcv;
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
     unsigned int page = 0;
@@ -299,22 +302,22 @@ void load_firmware(void)
 
         // Get two bytes for the length.
         rcv = UART1_getchar();
-        frame_length = (int)rcv << 8;
+        frame_len = (int)rcv << 8;
         rcv = UART1_getchar();
-        frame_length += (int)rcv;
+        frame_len += (int)rcv;
 
         UART0_putchar((unsigned char)rcv);
         wdt_reset();
 
         // Get the number of bytes specified
-        for(int i = 0; i < frame_length; ++i){
+        for(int i = 0; i < frame_len; ++i){
             wdt_reset();
             data[data_index] = UART1_getchar();
             data_index += 1;
         } //for
 
         // If we filed our page buffer, program it
-        if(data_index == SPM_PAGESIZE || frame_length == 0)
+        if(data_index == SPM_PAGESIZE || frame_len == 0)
         {
             wdt_reset();
             program_flash(page, data);

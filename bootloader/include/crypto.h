@@ -1,6 +1,8 @@
 #ifndef DECRYPT_H
 #define DECRYPT_H
 
+#include <stdint.h>
+
 /* Assumes the buffer length is 16 bytes */ 
 void decrypt(uint8_t *enc_data, uint8_t* dec_data);
 
