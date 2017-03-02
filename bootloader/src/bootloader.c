@@ -49,10 +49,12 @@ void boot_firmware(void);
 void readback(void);
 void encryption_test();
 void read_frame(unsigned char *data);
-void send_frame(unsigned char *data, int size);
+void send_frame(unsigned char *data);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
+
+#define FRAME_SIZE 16
 
 typedef struct header {
     uint16_t version;
@@ -96,8 +98,22 @@ int main(void)
 
 void encryption_test() 
 {
-    uint8_t init_data[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+    uint8_t init_data[16];
     uint8_t recv_data[16];
+    
+    //UART1_putchar(0x77);
+    /*for (int i = 0; i < 16; i++) {
+        UART1_putchar(pgm_read_byte(init_data + (uint32_t)i));
+    }*/
+
+    //UART1_putchar(0x88);
+    /*for (int i = 0; i < 16; i++) {
+        UART1_putchar(init_data[i]);
+    }*/
+    for (uint8_t i = 0; i < 16; i++) {
+        init_data[i] = i;
+    //    UART1_putchar(init_data[i]);
+    }
 
     encrypt(init_data, recv_data);
     decrypt(recv_data, init_data);
@@ -184,14 +200,7 @@ void readback(void)
         
         wdt_reset();
 
-        if (start_addr + size - addr > 16) 
-        {
-            send_frame(data, 16);
-        }
-        else 
-        {
-            send_frame(data, size % 16);
-        }
+        send_frame(data);
 
         wdt_reset();
     }
@@ -217,14 +226,11 @@ void read_frame(unsigned char *data)
     UART1_putchar(OK);
 }
 
-void send_frame(unsigned char *data, int size)
+void send_frame(unsigned char *data)
 {
     unsigned char frame[16];
 
     encrypt(data, frame);
-
-    UART1_putchar(((unsigned int)size) >> 8);
-    UART1_putchar((char)size);
 
     for (int i = 0; i < 16; i++) {
         UART1_putchar(frame[i]);
@@ -242,11 +248,13 @@ void load_firmware(void)
 {
     int frame_len = 0;
     uint8_t rcv;
+    unsigned char frame[FRAME_SIZE];
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
-    uint16_t size = 0;
+    uint16_t fw_size = 0;
+    uint16_t msg_size = 0;
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -257,18 +265,19 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
+    read_frame(frame);
     
     // Get version.
-    rcv = UART1_getchar();
-    version = (uint16_t)rcv << 8;
-    rcv = UART1_getchar();
-    version |= (uint16_t)rcv;
+    version  = ((uint16_t)frame[0]) << 8;
+    version |= frame[1];
 
-    // Get size.
-    rcv = UART1_getchar();
-    size = (uint16_t)rcv << 8;
-    rcv = UART1_getchar();
-    size |= (uint16_t)rcv;
+    // Get firmware size.
+    fw_size  = ((uint16_t)frame[2]) << 8;
+    fw_size |= frame[3];
+
+    // Get message size
+    msg_size  = ((uint16_t)frame[3]);
+    msg_size |= frame[4];
 
     // Compare to old version and abort if older (note special case for version
     // 0).
@@ -281,7 +290,7 @@ void load_firmware(void)
             __asm__ __volatile__("");
         }
     }
-    else if(version != 0)
+    else if (version != 0)
     {
         // Update version number in EEPROM.
         wdt_reset();
@@ -290,32 +299,21 @@ void load_firmware(void)
 
     // Write new firmware size to EEPROM.
     wdt_reset();
-    eeprom_update_word(&fw_size, size);
+    eeprom_update_word(&fw_size, fw_size);
     wdt_reset();
-
-    UART1_putchar(OK); // Acknowledge the metadata.
 
     /* Loop here until you can get all your characters and stuff */
     while (1)
     {
         wdt_reset();
-
-        // Get two bytes for the length.
-        rcv = UART1_getchar();
-        frame_len = (int)rcv << 8;
-        rcv = UART1_getchar();
-        frame_len += (int)rcv;
-
-        UART0_putchar((unsigned char)rcv);
-        wdt_reset();
-
-        // Get the number of bytes specified
-        for(int i = 0; i < frame_len; ++i){
-            wdt_reset();
-            data[data_index] = UART1_getchar();
-            data_index += 1;
-        } //for
-
+        
+        read_frame(frame);
+    
+        for (int i = 0; i < FRAME_SIZE; i++) 
+        {
+            data[data_index++] = frame[i];
+        }
+        
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_len == 0)
         {
@@ -323,12 +321,7 @@ void load_firmware(void)
             program_flash(page, data);
             page += SPM_PAGESIZE;
             data_index = 0;
-#if 1
-            // Write debugging messages to UART0.
-            UART0_putchar('P');
-            UART0_putchar(page>>8);
-            UART0_putchar(page);
-#endif
+
             wdt_reset();
 
         } // if

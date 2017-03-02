@@ -27,7 +27,12 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 #include <stdint.h>
 #include <string.h> // CBC mode, for memset
 #include "aes.h"
+#include "uart.h"
 
+#include <avr/pgmspace.h>
+#include <avr/boot.h>
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
 
 /*****************************************************************************/
 /* Defines:                                                                  */
@@ -70,7 +75,7 @@ static const uint8_t* Key;
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
 // The numbers below can be computed dynamically trading ROM for RAM - 
 // This can be useful in (embedded) bootloader applications, where ROM is often limited.
-static const uint8_t sbox[256] =   {
+static const uint8_t Sbox[256] EEMEM =   {
   //0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
   0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
   0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -89,7 +94,9 @@ static const uint8_t sbox[256] =   {
   0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
   0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 };
 
-static const uint8_t rsbox[256] =
+uint8_t sbox[256];
+
+static const uint8_t Rsbox[256] EEMEM =
 { 0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
   0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
   0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
@@ -107,11 +114,12 @@ static const uint8_t rsbox[256] =
   0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
   0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d };
 
+uint8_t rsbox[256];
 
 // The round constant word array, Rcon[i], contains the values given by 
 // x to th e power (i-1) being powers of x (x is denoted as {02}) in the field GF(2^8)
 // Note that i starts at 1, not 0).
-static const uint8_t Rcon[255] = {
+static const uint8_t rcon[255] EEMEM = {
   0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
   0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 
   0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 
@@ -129,6 +137,7 @@ static const uint8_t Rcon[255] = {
   0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 
   0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb  };
 
+uint8_t Rcon[255];
 
 /*****************************************************************************/
 /* Private functions:                                                        */
@@ -428,6 +437,7 @@ static void InvCipher(void)
 static void BlockCopy(uint8_t* output, const uint8_t* input)
 {
   uint8_t i;
+
   for (i=0;i<KEYLEN;++i)
   {
     output[i] = input[i];
@@ -447,6 +457,19 @@ void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* outpu
   // Copy input to output, and work in-memory on output
   BlockCopy(output, input);
   state = (state_t*)output;
+
+
+  //UART1_putchar(0xcc);
+  //UART1_putchar(0xcc);
+  //UART1_putchar(0xcc);
+  for (int i = 0; i < 256; i++) {
+    sbox[i] = eeprom_read_byte(&(Sbox[i]));
+    rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
+    Rcon[i] = eeprom_read_byte(&(rcon[i]));
+  }
+  //UART1_putchar(0xdd);
+  //UART1_putchar(0xdd);
+  //UART1_putchar(0xdd);
 
   Key = key;
   KeyExpansion();
@@ -470,104 +493,4 @@ void AES128_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *outpu
 
 
 #endif // #if defined(ECB) && ECB
-
-
-
-
-
-#if defined(CBC) && CBC
-
-
-static void XorWithIv(uint8_t* buf)
-{
-  uint8_t i;
-  for(i = 0; i < KEYLEN; ++i)
-  {
-    buf[i] ^= Iv[i];
-  }
-}
-
-void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
-{
-  uintptr_t i;
-  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
-
-  BlockCopy(output, input);
-  state = (state_t*)output;
-
-  // Skip the key expansion if key is passed as 0
-  if(0 != key)
-  {
-    Key = key;
-    KeyExpansion();
-  }
-
-  if(iv != 0)
-  {
-    Iv = (uint8_t*)iv;
-  }
-
-  for(i = 0; i < length; i += KEYLEN)
-  {
-    XorWithIv(input);
-    BlockCopy(output, input);
-    state = (state_t*)output;
-    Cipher();
-    Iv = output;
-    input += KEYLEN;
-    output += KEYLEN;
-  }
-
-  if(remainders)
-  {
-    BlockCopy(output, input);
-    memset(output + remainders, 0, KEYLEN - remainders); /* add 0-padding */
-    state = (state_t*)output;
-    Cipher();
-  }
-}
-
-void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
-{
-  uintptr_t i;
-  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
-  
-  BlockCopy(output, input);
-  state = (state_t*)output;
-
-  // Skip the key expansion if key is passed as 0
-  if(0 != key)
-  {
-    Key = key;
-    KeyExpansion();
-  }
-
-  // If iv is passed as 0, we continue to encrypt without re-setting the Iv
-  if(iv != 0)
-  {
-    Iv = (uint8_t*)iv;
-  }
-
-  for(i = 0; i < length; i += KEYLEN)
-  {
-    BlockCopy(output, input);
-    state = (state_t*)output;
-    InvCipher();
-    XorWithIv(output);
-    Iv = input;
-    input += KEYLEN;
-    output += KEYLEN;
-  }
-
-  if(remainders)
-  {
-    BlockCopy(output, input);
-    memset(output+remainders, 0, KEYLEN - remainders); /* add 0-padding */
-    state = (state_t*)output;
-    InvCipher();
-  }
-}
-
-
-#endif // #if defined(CBC) && CBC
 

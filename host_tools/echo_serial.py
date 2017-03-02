@@ -21,6 +21,6 @@ if __name__ == '__main__':
 
     # Read data
     while True:
-        sys.stdout.write(ser.read())
+        sys.stdout.write(ser.read().encode('hex'))
         sys.stdout.flush()
 

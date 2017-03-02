@@ -7,7 +7,7 @@ void __jumpMain     (void) __attribute__ ((naked)) __attribute__ ((section (".in
 
 void __Init(void)
 {
-#if 0
+#if 1
     // init stack here, bug in WinAVR 20071221 does not init stack based on __stack
     __asm__ __volatile__
     (
