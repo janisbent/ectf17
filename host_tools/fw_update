@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
+    ser = serial.Serial(args.port, baudrate=9600, timeout=2)
 
     # Open firmware file.
     print('Opening firmware file...')
@@ -77,10 +77,11 @@ if __name__ == '__main__':
             while resp != RESP_OK:
                 frameSize = struct.pack(">H", len(frame))
 
-                ser.write(frameSize + frame)
+                #ser.write(frameSize + frame)
+                ser.write(frame)
 
                 resp = ser.read(1)
-                time.sleep(.1)
+                time.sleep(.05)
 
                 # PUT PRINT CATCHES HERE v
 

@@ -1,7 +1,7 @@
 # Hardware configuration settings.
 MCU = atmega1284p
 F_CPU = 20000000
-BAUD = 115200
+BAUD = 9600
 
 # Tool aliases.
 CC = avr-gcc

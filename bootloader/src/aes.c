@@ -457,18 +457,11 @@ void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* outpu
   BlockCopy(output, input);
   state = (state_t*)output;
 
-
-  //UART1_putchar(0xcc);
-  //UART1_putchar(0xcc);
-  //UART1_putchar(0xcc);
   for (int i = 0; i < 256; i++) {
     sbox[i] = eeprom_read_byte(&(Sbox[i]));
     rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
     Rcon[i] = eeprom_read_byte(&(rcon[i]));
   }
-  //UART1_putchar(0xdd);
-  //UART1_putchar(0xdd);
-  //UART1_putchar(0xdd);
 
   Key = key;
   KeyExpansion();

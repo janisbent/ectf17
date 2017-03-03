@@ -54,6 +54,8 @@ void send_frame(unsigned char *data);
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 
+unsigned char KEY[] EEMEM = "1234567890123456";
+
 #define FRAME_SIZE 16
 
 typedef struct header {
@@ -66,9 +68,9 @@ int main(void)
 {
     // Init UART1 (virtual com port)
     UART1_init();
-
     UART0_init();
-    wdt_reset();
+
+    //wdt_reset();
 
     // Configure Port B Pins 2 and 3 as inputs.
     DDRB &= ~((1 << PB2) | (1 << PB3));
@@ -82,7 +84,6 @@ int main(void)
     UART1_putchar(0x66);
     UART1_putchar(0x66);
     UART1_putchar(0x66);
-    //encryption_test();
 
     // If jumper is present on pin 2, load new firmware.
     if(!(PINB & (1 << PB2)))
@@ -102,50 +103,6 @@ int main(void)
     }
 } // main
 
-unsigned char KEY[] EEMEM = "1234567890123456\0";
-#define BUFF_LEN 16
-
-void encryption_test() 
-{
-    uint8_t dec_data[16];
-    uint8_t enc_data[16];
-    
-    for (uint8_t i = 0; i < 16; i++) {
-        dec_data[i] = i;
-    }
-    uint8_t key[16];
-
-
-    UART1_putchar(0xaa);
-    UART1_putchar(0xaa);
-    UART1_putchar(0xaa);
-    for (int i = 0; i < BUFF_LEN; i++) {
-        UART1_putchar(dec_data[i]);
-    }
-
-    wdt_reset();
-
-    for (int i = 0; i < 17; i++) {
-        key[i] = eeprom_read_byte(&(KEY[i]));
-    }
-
-    //encrypt(init_data, recv_data);
-    UART1_putchar(0xcc);
-    UART1_putchar(0xcc);
-    UART1_putchar(0xcc);
-    for (int i = 0; i < BUFF_LEN; i++) {
-        UART1_putchar(key[i]);
-    }
-
-
-    //UART1_putchar(0xff);
-    //UART1_putchar(0xff);
-    //UART1_putchar(0xff);
-    while (1) {
-        continue;
-    }
-    //decrypt(enc_data, dec_data);
-}
 
 /***********************************************
  **************** BOOT FIRMWARE ****************
@@ -170,7 +127,7 @@ void boot_firmware(void)
         while(1) __asm__ __volatile__("");
     }
 
-    wdt_reset();
+    //wdt_reset();
 
     // Write out release message to UART0.
     do
@@ -181,7 +138,7 @@ void boot_firmware(void)
     } while (cur_byte != 0);
 
     // Stop the Watchdog Timer.
-    wdt_reset();
+    //wdt_reset();
     wdt_disable();
 
     /* Make the leap of faith. */
@@ -208,7 +165,7 @@ void readback(void)
     start_addr |= ((uint32_t)data[2]) << 8;
     start_addr |= ((uint32_t)data[3]);
 
-    wdt_reset();
+    //wdt_reset();
 
     // Parse size
     uint32_t size = ((uint32_t)data[4]) << 24;
@@ -216,7 +173,7 @@ void readback(void)
     size |= ((uint32_t)data[6]) << 8;
     size |= ((uint32_t)data[7]);
 
-    wdt_reset();
+    //wdt_reset();
 
     // Read the memory out to UART1.
     for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
@@ -226,11 +183,11 @@ void readback(void)
             data[i] = pgm_read_byte_far(addr++);
         }
         
-        wdt_reset();
+        //wdt_reset();
 
         send_frame(data);
 
-        wdt_reset();
+        //wdt_reset();
     }
 
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
@@ -240,42 +197,33 @@ int read_frame(unsigned char *data)
 {
     int frame_len;
     unsigned char frame[16];
-    uint8_t key[17];
+    uint8_t key[16];
 
-    for (int i = 0; i < 17; i++) {
+    for (int i = 0; i < 16; i++) {
         key[i] = eeprom_read_byte(&(KEY[i]));
     }
 
-
     // Get two bytes for the length.
-    frame_len = ((int)UART1_getchar()) << 8;
-    frame_len = (int)UART1_getchar();
+    //frame_len  = ((int)UART1_getchar()) << 8;
+    //frame_len |= (int)UART1_getchar();
     
-    for (int i = 0; i < frame_len; i++) {
+    for (int i = 0; i < FRAME_SIZE; i++) {
         frame[i] = UART1_getchar();
     }
-/*
-    for (int i = 0; i < BUFF_LEN; i++) {/////////////////////
-        UART1_putchar(frame[i]);
-    }*/
     
     AES128_ECB_decrypt(frame, key, data);
-/*
-    for (int i = 0; i < BUFF_LEN; i++) {//////////////////////
-        UART1_putchar(data[i]);
-    }*/
 
     UART1_putchar(OK);
 
-    return frame_len;
+    return FRAME_SIZE;
 }
 
 void send_frame(unsigned char *data)
 {
     unsigned char frame[16];
-    uint8_t key[17];
+    uint8_t key[16];
 
-    for (int i = 0; i < 17; i++) {
+    for (int i = 0; i < 16; i++) {
         key[i] = eeprom_read_byte(&(KEY[i]));
     }
 
@@ -296,7 +244,6 @@ void send_frame(unsigned char *data)
 void load_firmware(void)
 {
     int frame_len = 0;
-    uint8_t rcv;
     unsigned char frame[FRAME_SIZE];
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned int data_index = 0;
@@ -313,22 +260,21 @@ void load_firmware(void)
     }
 
     // Start the Watchdog Timer
-    //wdt_enable(WDTO_2S);
+    // wdt_enable(WDTO_2S); //////////////////////////
 
     read_frame(frame);
-    
 
     // Get firmware size.
-    fw_size  = ((uint16_t)frame[2]) << 8;
-    fw_size |= frame[3];
+    fw_size  = ((uint16_t)frame[0]) << 8;
+    fw_size |= frame[1];
 
     // Get message size
-    msg_size  = ((uint16_t)frame[3]);
-    msg_size |= frame[4];
+    msg_size  = ((uint16_t)frame[2]);
+    msg_size |= frame[3];
 
     // Get version.
-    version  = ((uint16_t)frame[0]) << 8;
-    version |= frame[1];
+    version  = ((uint16_t)frame[4]) << 8;
+    version |= frame[5];
 
     // Compare to old version and abort if older (note special case for version
     // 0).
@@ -344,19 +290,19 @@ void load_firmware(void)
     else if (version != 0)
     {
         // Update version number in EEPROM.
-        wdt_reset();
+        //wdt_reset();
         eeprom_update_word(&fw_version, version);
     }
 
     // Write new firmware size to EEPROM.
-    wdt_reset();
+    //wdt_reset();
     eeprom_update_word(&fw_size, fw_size);
-    wdt_reset();
+    //wdt_reset();
 
     /* Loop here until you can get all your characters and stuff */
     while (1)
     {
-        wdt_reset();
+        //wdt_reset();
         
         frame_len = read_frame(frame);
     
@@ -368,12 +314,12 @@ void load_firmware(void)
         // If we filed our page buffer, program it
         if(data_index >= SPM_PAGESIZE || frame_len == 0)
         {
-            wdt_reset();
+            //wdt_reset();
             program_flash(page, data);
             page += SPM_PAGESIZE;
-            data_index = 0;
+            data_index -= SPM_PAGESIZE;
 
-            wdt_reset();
+            //wdt_reset();
 
         } // if
     } // while(1)
