@@ -22,7 +22,7 @@ CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DAES_KEY="${AES
 # Description of CLINKER options:
 # 	-Wl,--section-start=.text=0x1E000 -- Offsets the code to the start of the bootloader section
 # 	-Wl,-Map,bootloader.map -- Created an additional file that lists the locations in memory of all functions.
-CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map
+CLINKER = -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map -Wl,--defsym=__heap_end=0x0
 
 CWARN =  -Wall
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
@@ -103,15 +103,12 @@ sys_startup.o:
 aes.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c
 
-crypto.o: aes.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/crypto.c
-
-bootloader.o: crypto.o
+bootloader.o: aes.o
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o crypto.o aes.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes.o
         # Create an .elf file for the bootloader with all debug symbols included.
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o crypto.o aes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o aes.o
 
 strip: bootloader_dbg.elf
 	# Create a version of the bootloder .elf file with all the debug symbols stripped.

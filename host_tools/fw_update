@@ -60,8 +60,9 @@ if __name__ == '__main__':
         print('Waiting for bootloader to enter update mode...')
         while ser.read(1) != 'U':
             pass
-
+        
         frameNum = 0
+
         for frame in iter(lambda: firmware.read(FRAME_SIZE), ''):
             if frameNum == 0:
                 print("Writing header...")
@@ -72,19 +73,26 @@ if __name__ == '__main__':
             if args.debug:
                 print(frame.encode('hex'))
 
-            frameSize = struct.pack(">H", len(frame))
-            ser.write(frameSize + frame)
+            resp = RESP_ER
+            while resp != RESP_OK:
+                frameSize = struct.pack(">H", len(frame))
 
-            # Wait for an OK from the bootloader.
-            resp = ser.read()
-            time.sleep(0.1)
-            if resp != RESP_OK:
-                raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+                ser.write(frameSize + frame)
 
-            if args.debug:
-                print("Resp: {}".format(ord(resp)))
+                resp = ser.read(1)
+                time.sleep(.1)
+
+                # PUT PRINT CATCHES HERE v
+
+                # PUT PRINT CATCHES HERE ^
+
+                if resp != RESP_OK:
+                    print "ERROR: Bootloader responded with " + repr(resp).encode('hex')
+                else:
+                    frameNum += 1
+                    if args.debug:
+                        print("Resp: {}".format(ord(resp)))
     
-            frameNum += 1
 
     ser.write(struct.pack('>H', 0x0000))
 
