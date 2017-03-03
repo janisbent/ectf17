@@ -57,13 +57,13 @@ class Crypt:
 		return signer.sign(hashMsg)
 
 	def encode(self, msg):
-		key = self.getAESKey()
+		key = '1234567890123456' #self.getAESKey()
 		cipher = AES.new(key, AES.MODE_ECB)
 		msg = self.randomPadToSize(msg)
 		return cipher.encrypt(msg)
 
 	def decode(self, msg):
-		key = self.getAESKey()
+		key = '1234567890123456' #self.getAESKey()
 		cipher = AES.new(key, AES.MODE_ECB)
 		return cipher.decrypt(msg)
 

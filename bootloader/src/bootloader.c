@@ -151,46 +151,65 @@ void boot_firmware(void)
 
 void readback(void)
 {
-    unsigned char data[16];
+    unsigned char frame[FRAME_SIZE];
+    uint32_t addr;
 
     // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+    //wdt_enable(WDTO_2S);
+
+    while(!UART1_data_available())
+    {
+        __asm__ __volatile__("");
+    }
 
     // Read in header data
-    read_frame(data);
-
+    read_frame(frame);
+/////////////////////////////////////////////////////////////////
+    //UART1_putchar(0xcc);
     // Parse start address
-    uint32_t start_addr = ((uint32_t)data[0]) << 24;
-    start_addr |= ((uint32_t)data[1]) << 16;
-    start_addr |= ((uint32_t)data[2]) << 8;
-    start_addr |= ((uint32_t)data[3]);
+    uint32_t start_addr = ((uint32_t)frame[0]) << 24;
+    start_addr |= ((uint32_t)frame[1]) << 16;
+    start_addr |= ((uint32_t)frame[2]) << 8;
+    start_addr |= ((uint32_t)frame[3]);
 
+    //UART1_putchar(0xdd);
     //wdt_reset();
 
     // Parse size
-    uint32_t size = ((uint32_t)data[4]) << 24;
-    size |= ((uint32_t)data[5]) << 16;
-    size |= ((uint32_t)data[6]) << 8;
-    size |= ((uint32_t)data[7]);
+    uint32_t size = ((uint32_t)frame[4]) << 24;
+    size |= ((uint32_t)frame[5]) << 16;
+    size |= ((uint32_t)frame[6]) << 8;
+    size |= ((uint32_t)frame[7]);
 
+    //for (int i = 0; i < 8; i++) {
+    //    UART1_putchar(frame[i]);
+    //}
+    UART1_putchar(0xee);
     //wdt_reset();
 
+    addr = start_addr;
+
     // Read the memory out to UART1.
-    for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
+    while (addr < start_addr + size)
     {
         for (int i = 0; i < 16; i++) 
         {
-            data[i] = pgm_read_byte_far(addr++);
+            frame[i] = pgm_read_byte_far(addr++);
         }
         
         //wdt_reset();
 
-        send_frame(data);
+        send_frame(frame);
 
+        //UART1_putchar(0x11);
         //wdt_reset();
     }
 
-    while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
+    //UART1_putchar(0x55);
+    while (1)
+    {
+        continue;
+    }
 }
 
 int read_frame(unsigned char *data)
@@ -199,18 +218,22 @@ int read_frame(unsigned char *data)
     unsigned char frame[16];
     uint8_t key[16];
 
+    //UART1_putchar(0x22);
+
     for (int i = 0; i < 16; i++) {
         key[i] = eeprom_read_byte(&(KEY[i]));
     }
 
-    // Get two bytes for the length.
-    //frame_len  = ((int)UART1_getchar()) << 8;
-    //frame_len |= (int)UART1_getchar();
-    
     for (int i = 0; i < FRAME_SIZE; i++) {
         frame[i] = UART1_getchar();
     }
+
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        UART1_putchar(frame[i]);
+    }
     
+/////////////////////////////////////////////////////////////////
+    //UART1_putchar(0x44);
     AES128_ECB_decrypt(frame, key, data);
 
     UART1_putchar(OK);
