@@ -36,7 +36,7 @@ if __name__ == '__main__':
     crypt = Crypt(FILE_DIR)
 
     # Get version and size.
-    firmware_size = firmware.maxad
+    firmware_size = firmware.maxaddr()
     version = int(args.version)
 
     # Add release message to end of hex (null-terminated).
