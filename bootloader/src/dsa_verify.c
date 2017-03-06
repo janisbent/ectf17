@@ -1,75 +1,104 @@
-/* dsa_verify.c */
 /*
-    This file is part of the AVR-Crypto-Lib.
-    Copyright (C) 2010 Daniel Otte (daniel.otte@rub.de)
+ * dsa_verify - http://opensource.implicit-link.com/
+ * Copyright (c) 2010 Implicit Link
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+#include <string.h>
+#include <stdio.h>
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+#include "mp_math.h"
+#include "sha1.h"
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+#include "dsa_verify.h"
 
-#include <stdint.h>
-#include "bigint.h"
-#include "dsa.h"
-#include "hfal-basic.h"
+#define MP_OP(op) if ((ret = (op)) != MP_OKAY) goto error;
 
-uint8_t dsa_verify_bigint(const dsa_signature_t *s, const bigint_t *m,
-		                  const dsa_ctx_t *ctx){
-	if(s->r.length_W==0 || s->s.length_W==0){
-		return DSA_SIGNATURE_FAIL;
+/*char *debugMp (mp_int *d)
+{
+	char *ret = malloc(1024); // leak leak
+	mp_tohex(d, ret);
+	return ret;
+}*/
+
+int _dsa_verify_hash (mp_int *r, mp_int *s, mp_int *hash,
+		mp_int *keyG, mp_int *keyP, mp_int *keyQ, mp_int *keyY)
+{
+	mp_int w, v, u1, u2;
+	int ret;
+	
+	MP_OP(mp_init_multi(&w, &v, &u1, &u2, NULL));
+	
+	// neither r or s can be 0 or >q
+	if (mp_iszero(r) == MP_YES || mp_iszero(s) == MP_YES || mp_cmp(r, keyQ) != MP_LT || mp_cmp(s, keyQ) != MP_LT) {
+	   ret = -1;
+	   goto error;
 	}
-	if(bigint_cmp_u(&(s->r), &(ctx->domain.q))>=0 || bigint_cmp_u(&(s->s), &(ctx->domain.q))>=0){
-		return DSA_SIGNATURE_FAIL;
-	}
-	bigint_t w, u1, u2, v1, v2;
-	uint8_t w_b[ctx->domain.q.length_W], u1_b[ctx->domain.q.length_W*2], u2_b[ctx->domain.q.length_W*2];
-	uint8_t v1_b[ctx->domain.p.length_W*2], v2_b[ctx->domain.p.length_W];
-	w.wordv = w_b;
-	u1.wordv = u1_b;
-	u2.wordv = u2_b;
-	v1.wordv = v1_b;
-	v2.wordv = v2_b;
-	bigint_inverse(&w, &(s->s), &(ctx->domain.q));
-	bigint_mul_u(&u1, &w, m);
-	bigint_reduce(&u1, &(ctx->domain.q));
-	bigint_mul_u(&u2, &w, &(s->r));
-	bigint_reduce(&u2, &(ctx->domain.q));
-	bigint_expmod_u(&v1, &(ctx->domain.g), &u1, &(ctx->domain.p));
-	bigint_expmod_u(&v2, &(ctx->pub), &u2, &(ctx->domain.p));
-	bigint_mul_u(&v1, &v1, &v2);
-	bigint_reduce(&v1, &(ctx->domain.p));
-	bigint_reduce(&v1, &(ctx->domain.q));
-	if(bigint_cmp_u(&v1, &(s->r))==0){
-		return DSA_SIGNATURE_OK;
-	}
-	return DSA_SIGNATURE_FAIL;
+	
+	// w = 1/s mod q
+	MP_OP(mp_invmod(s, keyQ, &w));
+	
+	// u1 = m * w mod q
+	MP_OP(mp_mulmod(hash, &w, keyQ, &u1));
+	
+	// u2 = r*w mod q
+	MP_OP(mp_mulmod(r, &w, keyQ, &u2));
+	
+	// v = g^u1 * y^u2 mod p mod q
+	MP_OP(mp_exptmod(keyG, &u1, keyP, &u1));
+	MP_OP(mp_exptmod(keyY, &u2, keyP, &u2));
+	MP_OP(mp_mulmod(&u1, &u2, keyP, &v));
+	MP_OP(mp_mod(&v, keyQ, &v));
+	
+	// if r = v then we're set
+	ret = 0;
+	if (mp_cmp(r, &v) == MP_EQ) ret = 1;
+	
+error:
+	mp_clear_multi(&w, &v, &u1, &u2, NULL);
+	return ret;
 }
 
-uint8_t dsa_verify_message(const dsa_signature_t *s, const void *m, uint16_t m_len_b,
-						  const hfdesc_t *hash_desc, const dsa_ctx_t *ctx){
-	bigint_t z;
-	uint8_t n_B = ctx->domain.q.length_W;
-	uint8_t hash_value[(hfal_hash_getHashsize(hash_desc)+7)/8];
-	hfal_hash_mem(hash_desc, hash_value, m, m_len_b);
-	z.wordv=hash_value;
-	z.length_W=n_B;
-	bigint_changeendianess(&z);
-	bigint_adjust(&z);
-	return dsa_verify_bigint(s, &z, ctx);
+const unsigned char *read_key(mp_int* keyPart, const unsigned char* keyData)
+{
+	int len = keyData[0]*256 + keyData[1];
+	mp_read_unsigned_bin(keyPart, keyData+2, len);
+	return keyData+len+2;
 }
 
+int dsa_verify_blob(const char *data, int dataLen, const unsigned char* keyData, const char* sigR, const char* sigS)
+{
+	// dss1 hashing algorithm is actually sha1
+	SHA1Context sha1;
+	uint8_t sha1sum[SHA1HashSize];
+	SHA1Reset(&sha1);
 
+	SHA1Input(&sha1, (const unsigned char *) data, dataLen);
+	SHA1Result(&sha1, sha1sum);
 
-
-
-
+	mp_int hash, keyG, keyP, keyQ, keyY, r, s;
+	mp_init_multi(&hash, &keyG, &keyP, &keyQ, &keyY, &r, &s, NULL);
+	mp_read_unsigned_bin(&hash, sha1sum, sizeof(sha1sum));
+	
+	keyData = read_key(&keyY, keyData);
+	keyData = read_key(&keyP, keyData);
+	keyData = read_key(&keyQ, keyData);
+	keyData = read_key(&keyG, keyData);
+	mp_read_radix(&r, sigR, 16);
+	mp_read_radix(&s, sigS, 16);
+	
+	return _dsa_verify_hash(&r, &s, &hash, &keyG, &keyP, &keyQ, &keyY);
+}
 
