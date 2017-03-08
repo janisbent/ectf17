@@ -37,6 +37,7 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include "aes.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -168,6 +169,9 @@ void load_firmware(void)
     int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned char frame[16];
+    unsigned char key[16];
+    unsigned char output[16];
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
@@ -233,10 +237,18 @@ void load_firmware(void)
         UART0_putchar((unsigned char)rcv);
         wdt_reset();
 
+        for(int i = 0; i < frame_length; i++) {
+            frame[i] = UART1_getchar();
+            key[i] = (unsigned char)i;
+            //output[i] = frame[i];
+        }
+
+        AES128_ECB_decrypt(frame, key, output);
+
         // Get the number of bytes specified
         for(int i = 0; i < frame_length; ++i){
             wdt_reset();
-            data[data_index] = UART1_getchar();
+            data[data_index] = output[i];
             data_index += 1;
         } //for
 

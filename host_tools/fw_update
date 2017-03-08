@@ -122,7 +122,7 @@ if __name__ == '__main__':
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
 
-        ser.write(frame)  # Write the frame...
+        ser.write(frame.ljust(18, '\00'))  # Write the frame...
 
         if args.debug:
             print(frame.encode('hex'))
