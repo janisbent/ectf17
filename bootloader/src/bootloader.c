@@ -81,9 +81,48 @@ int main(void)
     }
 } // main
 
-/*
- * Interface with host readback tool.
- */
+/***********************************************
+ **************** BOOT FIRMWARE ****************
+ ***********************************************/
+
+void boot_firmware(void)
+{
+    // Start the Watchdog Timer.
+    wdt_enable(WDTO_2S);
+
+    // Write out the release message.
+    uint8_t cur_byte;
+    uint32_t addr = (uint32_t)eeprom_read_word(&fw_size);
+
+    // Reset if firmware size is 0 (indicates no firmware is loaded).
+    if(addr == 0)
+    {
+        // Wait for watchdog timer to reset.
+        while(1) __asm__ __volatile__("");
+    }
+
+    wdt_reset();
+
+    // Write out release message to UART0.
+    do
+    {
+        cur_byte = pgm_read_byte_far(addr);
+        UART0_putchar(cur_byte);
+        ++addr;
+    } while (cur_byte != 0);
+
+    // Stop the Watchdog Timer.
+    wdt_reset();
+    wdt_disable();
+
+    /* Make the leap of faith. */
+    asm ("jmp 0000");
+}
+
+/***********************************************
+ ****************** READBACK *******************
+ ***********************************************/
+
 void readback(void)
 {
     // Start the Watchdog Timer
@@ -120,10 +159,10 @@ void readback(void)
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
+/***********************************************
+ **************** LOAD FIRMWARE ****************
+ ***********************************************/
 
-/*
- * Load the firmware into flash.
- */
 void load_firmware(void)
 {
     int frame_length = 0;
@@ -220,44 +259,6 @@ void load_firmware(void)
 
         UART1_putchar(OK); // Acknowledge the frame.
     } // while(1)
-}
-
-
-/*
- * Ensure the firmware is loaded correctly and boot it up.
- */
-void boot_firmware(void)
-{
-    // Start the Watchdog Timer.
-    wdt_enable(WDTO_2S);
-
-    // Write out the release message.
-    uint8_t cur_byte;
-    uint32_t addr = (uint32_t)eeprom_read_word(&fw_size);
-
-    // Reset if firmware size is 0 (indicates no firmware is loaded).
-    if(addr == 0)
-    {
-        // Wait for watchdog timer to reset.
-        while(1) __asm__ __volatile__("");
-    }
-
-    wdt_reset();
-
-    // Write out release message to UART0.
-    do
-    {
-        cur_byte = pgm_read_byte_far(addr);
-        UART0_putchar(cur_byte);
-        ++addr;
-    } while (cur_byte != 0);
-
-    // Stop the Watchdog Timer.
-    wdt_reset();
-    wdt_disable();
-
-    /* Make the leap of faith. */
-    asm ("jmp 0000");
 }
 
 
