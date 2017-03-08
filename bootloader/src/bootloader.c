@@ -32,58 +32,36 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <util/delay.h>
+#include "uart.h"
 #include <avr/boot.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
-#include "uart.h"
-#include "aes.h"
-
 #define OK    ((unsigned char)0x00)
-#define ERROR ((unsigned char)0xFF)
+#define ERROR ((unsigned char)0x01)
 
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
-void encryption_test();
-int read_frame(unsigned char *data);
-void send_frame(unsigned char *data);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
-
-unsigned char KEY[] EEMEM = "1234567890123456";
-
-#define FRAME_SIZE 16
-
-typedef struct header {
-    uint16_t version;
-    uint16_t fw_size;
-    uint16_t msg_size;
-} header;
 
 int main(void)
 {
     // Init UART1 (virtual com port)
     UART1_init();
-    UART0_init();
 
-    //wdt_reset();
+    UART0_init();
+    wdt_reset();
 
     // Configure Port B Pins 2 and 3 as inputs.
     DDRB &= ~((1 << PB2) | (1 << PB3));
 
     // Enable pullups - give port time to settle.
     PORTB |= (1 << PB2) | (1 << PB3);
-
-    UART1_putchar(0x66);
-    UART1_putchar(0x66);
-    UART1_putchar(0x66);
-    UART1_putchar(0x66);
-    UART1_putchar(0x66);
-    UART1_putchar(0x66);
 
     // If jumper is present on pin 2, load new firmware.
     if(!(PINB & (1 << PB2)))
@@ -103,10 +81,147 @@ int main(void)
     }
 } // main
 
+/*
+ * Interface with host readback tool.
+ */
+void readback(void)
+{
+    // Start the Watchdog Timer
+    wdt_enable(WDTO_2S);
 
-/***********************************************
- **************** BOOT FIRMWARE ****************
- ***********************************************/
+    // Read in start address (4 bytes).
+    uint32_t start_addr = ((uint32_t)UART1_getchar()) << 24;
+    start_addr |= ((uint32_t)UART1_getchar()) << 16;
+    start_addr |= ((uint32_t)UART1_getchar()) << 8;
+    start_addr |= ((uint32_t)UART1_getchar());
+
+    wdt_reset();
+
+    // Read in size (4 bytes).
+    uint32_t size = ((uint32_t)UART1_getchar()) << 24;
+    size |= ((uint32_t)UART1_getchar()) << 16;
+    size |= ((uint32_t)UART1_getchar()) << 8;
+    size |= ((uint32_t)UART1_getchar());
+
+    wdt_reset();
+
+    // Read the memory out to UART1.
+    for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
+    {
+        // Read a byte from flash.
+        unsigned char byte = pgm_read_byte_far(addr);
+        wdt_reset();
+
+        // Write the byte to UART1.
+        UART1_putchar(byte);
+        wdt_reset();
+    }
+
+    while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
+}
+
+
+/*
+ * Load the firmware into flash.
+ */
+void load_firmware(void)
+{
+    int frame_length = 0;
+    unsigned char rcv = 0;
+    unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned int data_index = 0;
+    unsigned int page = 0;
+    uint16_t version = 0;
+    uint16_t size = 0;
+
+    // Start the Watchdog Timer
+    wdt_enable(WDTO_2S);
+
+    /* Wait for data */
+    while(!UART1_data_available())
+    {
+        __asm__ __volatile__("");
+    }
+
+    // Get version.
+    rcv = UART1_getchar();
+    version = (uint16_t)rcv << 8;
+    rcv = UART1_getchar();
+    version |= (uint16_t)rcv;
+
+    // Get size.
+    rcv = UART1_getchar();
+    size = (uint16_t)rcv << 8;
+    rcv = UART1_getchar();
+    size |= (uint16_t)rcv;
+
+    // Compare to old version and abort if older (note special case for version
+    // 0).
+    if (version != 0 && version < eeprom_read_word(&fw_version))
+    {
+        UART1_putchar(ERROR); // Reject the metadata.
+        // Wait for watchdog timer to reset.
+        while(1)
+        {
+            __asm__ __volatile__("");
+        }
+    }
+    else if(version != 0)
+    {
+        // Update version number in EEPROM.
+        wdt_reset();
+        eeprom_update_word(&fw_version, version);
+    }
+
+    // Write new firmware size to EEPROM.
+    wdt_reset();
+    eeprom_update_word(&fw_size, size);
+    wdt_reset();
+
+    UART1_putchar(OK); // Acknowledge the metadata.
+
+    /* Loop here until you can get all your characters and stuff */
+    while (1)
+    {
+        wdt_reset();
+
+        // Get two bytes for the length.
+        rcv = UART1_getchar();
+        frame_length = (int)rcv << 8;
+        rcv = UART1_getchar();
+        frame_length += (int)rcv;
+
+        UART0_putchar((unsigned char)rcv);
+        wdt_reset();
+
+        // Get the number of bytes specified
+        for(int i = 0; i < frame_length; ++i){
+            wdt_reset();
+            data[data_index] = UART1_getchar();
+            data_index += 1;
+        } //for
+
+        // If we filed our page buffer, program it
+        if(data_index == SPM_PAGESIZE || frame_length == 0)
+        {
+            wdt_reset();
+            program_flash(page, data);
+            page += SPM_PAGESIZE;
+            data_index = 0;
+#if 1
+            // Write debugging messages to UART0.
+            UART0_putchar('P');
+            UART0_putchar(page>>8);
+            UART0_putchar(page);
+#endif
+            wdt_reset();
+
+        } // if
+
+        UART1_putchar(OK); // Acknowledge the frame.
+    } // while(1)
+}
+
 
 /*
  * Ensure the firmware is loaded correctly and boot it up.
@@ -127,7 +242,7 @@ void boot_firmware(void)
         while(1) __asm__ __volatile__("");
     }
 
-    //wdt_reset();
+    wdt_reset();
 
     // Write out release message to UART0.
     do
@@ -138,214 +253,11 @@ void boot_firmware(void)
     } while (cur_byte != 0);
 
     // Stop the Watchdog Timer.
-    //wdt_reset();
+    wdt_reset();
     wdt_disable();
 
     /* Make the leap of faith. */
     asm ("jmp 0000");
-}
-
-/***********************************************
- ****************** READBACK *******************
- ***********************************************/
-
-void readback(void)
-{
-    unsigned char frame[FRAME_SIZE];
-    uint32_t addr;
-
-    // Start the Watchdog Timer
-    //wdt_enable(WDTO_2S);
-
-    while(!UART1_data_available())
-    {
-        __asm__ __volatile__("");
-    }
-
-    // Read in header data
-    read_frame(frame);
-/////////////////////////////////////////////////////////////////
-    //UART1_putchar(0xcc);
-    // Parse start address
-    uint32_t start_addr = ((uint32_t)frame[0]) << 24;
-    start_addr |= ((uint32_t)frame[1]) << 16;
-    start_addr |= ((uint32_t)frame[2]) << 8;
-    start_addr |= ((uint32_t)frame[3]);
-
-    //UART1_putchar(0xdd);
-    //wdt_reset();
-
-    // Parse size
-    uint32_t size = ((uint32_t)frame[4]) << 24;
-    size |= ((uint32_t)frame[5]) << 16;
-    size |= ((uint32_t)frame[6]) << 8;
-    size |= ((uint32_t)frame[7]);
-
-    //for (int i = 0; i < 8; i++) {
-    //    UART1_putchar(frame[i]);
-    //}
-    UART1_putchar(0xee);
-    //wdt_reset();
-
-    addr = start_addr;
-
-    // Read the memory out to UART1.
-    while (addr < start_addr + size)
-    {
-        for (int i = 0; i < 16; i++) 
-        {
-            frame[i] = pgm_read_byte_far(addr++);
-        }
-        
-        //wdt_reset();
-
-        send_frame(frame);
-
-        //UART1_putchar(0x11);
-        //wdt_reset();
-    }
-
-    //UART1_putchar(0x55);
-    while (1)
-    {
-        continue;
-    }
-}
-
-int read_frame(unsigned char *data)
-{
-    int frame_len;
-    unsigned char frame[16];
-    uint8_t key[16];
-
-    //UART1_putchar(0x22);
-
-    for (int i = 0; i < 16; i++) {
-        key[i] = eeprom_read_byte(&(KEY[i]));
-    }
-
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        frame[i] = UART1_getchar();
-    }
-
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        UART1_putchar(frame[i]);
-    }
-    
-/////////////////////////////////////////////////////////////////
-    //UART1_putchar(0x44);
-    AES128_ECB_decrypt(frame, key, data);
-
-    UART1_putchar(OK);
-
-    return FRAME_SIZE;
-}
-
-void send_frame(unsigned char *data)
-{
-    unsigned char frame[16];
-    uint8_t key[16];
-
-    for (int i = 0; i < 16; i++) {
-        key[i] = eeprom_read_byte(&(KEY[i]));
-    }
-
-    AES128_ECB_encrypt(data, key, frame); 
-
-    for (int i = 0; i < 16; i++) {
-        UART1_putchar(frame[i]);
-    }
-}
-
-/***********************************************
- *************** UPDATE FIRMWARE ***************
- ***********************************************/
-
-/*
- * Load the firmware into flash.
- */
-void load_firmware(void)
-{
-    int frame_len = 0;
-    unsigned char frame[FRAME_SIZE];
-    unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
-    unsigned int data_index = 0;
-    unsigned int page = 0;
-    uint16_t version = 0;
-    uint16_t fw_size = 0;
-    uint16_t msg_size = 0;
-
-
-    /* Wait for data */
-    while(!UART1_data_available())
-    {
-        __asm__ __volatile__("");
-    }
-
-    // Start the Watchdog Timer
-    // wdt_enable(WDTO_2S); //////////////////////////
-
-    read_frame(frame);
-
-    // Get firmware size.
-    fw_size  = ((uint16_t)frame[0]) << 8;
-    fw_size |= frame[1];
-
-    // Get message size
-    msg_size  = ((uint16_t)frame[2]);
-    msg_size |= frame[3];
-
-    // Get version.
-    version  = ((uint16_t)frame[4]) << 8;
-    version |= frame[5];
-
-    // Compare to old version and abort if older (note special case for version
-    // 0).
-    if (version != 0 && version < eeprom_read_word(&fw_version))
-    {
-        UART1_putchar(ERROR); // Reject the metadata.
-        // Wait for watchdog timer to reset.
-        while(1)
-        {
-            __asm__ __volatile__("");
-        }
-    }
-    else if (version != 0)
-    {
-        // Update version number in EEPROM.
-        //wdt_reset();
-        eeprom_update_word(&fw_version, version);
-    }
-
-    // Write new firmware size to EEPROM.
-    //wdt_reset();
-    eeprom_update_word(&fw_size, fw_size);
-    //wdt_reset();
-
-    /* Loop here until you can get all your characters and stuff */
-    while (1)
-    {
-        //wdt_reset();
-        
-        frame_len = read_frame(frame);
-    
-        for (int i = 0; i < FRAME_SIZE; i++) 
-        {
-            data[data_index++] = frame[i];
-        }
-        
-        // If we filed our page buffer, program it
-        if(data_index >= SPM_PAGESIZE || frame_len == 0)
-        {
-            //wdt_reset();
-            program_flash(page, data);
-            page += SPM_PAGESIZE;
-            data_index -= SPM_PAGESIZE;
-
-            //wdt_reset();
-
-        } // if
-    } // while(1)
 }
 
 

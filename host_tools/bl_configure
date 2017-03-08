@@ -44,12 +44,12 @@ if __name__ == '__main__':
     # Create serial connection using specified port.
     serial_port = serial.Serial(args.port)
 
-    # Generate secret file.
-    generate_secret_file()
-
     # Do configuration and then close port.
     try:
         configure_bootloader(serial_port)
     finally:
         serial_port.close()
+
+    # Generate secret file.
+    generate_secret_file()
 

@@ -17,10 +17,10 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=9600, timeout=2) 
+    ser = serial.Serial(args.port, baudrate=115200, timeout=2) 
 
     # Read data
     while True:
-        sys.stdout.write(ser.read().encode('hex'))
+        sys.stdout.write(ser.read())
         sys.stdout.flush()
 
