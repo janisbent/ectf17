@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <util/delay.h>
-#include "uart.h"
+#include "../include/uart.h"
 #include <avr/boot.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>

@@ -3,7 +3,7 @@
  */
 
 #include <avr/io.h>
-#include "uart.h"
+#include "../include/uart.h"
 
 
 /* init UART1
