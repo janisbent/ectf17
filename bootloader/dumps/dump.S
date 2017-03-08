@@ -584,6 +584,7 @@ Disassembly of section .text:
    1e3a4:	0e 94 21 f0 	call	0x1e042	; 0x1e042 <UART1_putchar>
    1e3a8:	00 e0       	ldi	r16, 0x00	; 0
    1e3aa:	10 e0       	ldi	r17, 0x00	; 0
+; JUMP START
    1e3ac:	a8 95       	wdr
    1e3ae:	60 e0       	ldi	r22, 0x00	; 0
    1e3b0:	70 e0       	ldi	r23, 0x00	; 0

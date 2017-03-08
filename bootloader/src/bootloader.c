@@ -185,7 +185,6 @@ int read_frame(unsigned char *data, int start_index)
 
 void load_firmware(void)
 {
-    int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
     unsigned char frame[16];
@@ -250,7 +249,7 @@ void load_firmware(void)
         data_index += read_frame(data, data_index);
 
         // If we filed our page buffer, program it
-        if(data_index == SPM_PAGESIZE || frame_length == 0)
+        if (data_index == SPM_PAGESIZE)
         {
             wdt_reset();
             program_flash(page, data);
