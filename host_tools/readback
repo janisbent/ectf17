@@ -49,7 +49,7 @@ if __name__ == '__main__':
     request = construct_request(int(args.address), int(args.num_bytes))
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
+    ser = serial.Serial(args.port, baudrate=9600, timeout=2)
 
     # Wait for bootloader to reset/enter readback mode.
     while ser.read(1) != 'R':

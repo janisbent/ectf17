@@ -30,6 +30,7 @@ from cStringIO import StringIO
 from intelhex import IntelHex
 
 RESP_OK = b'\x00'
+RESP_ER = b'\x01'
 
 
 class Firmware(object):
@@ -95,7 +96,7 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
+    ser = serial.Serial(args.port, baudrate=9600, timeout=4)
 
     # Open our firmware file.
     print('Opening firmware file...')
@@ -122,20 +123,20 @@ if __name__ == '__main__':
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
 
-        ser.write(frame.ljust(18, '\00'))  # Write the frame...
+        resp = RESP_ER
+        while resp != RESP_OK:
+            ser.write(frame.ljust(18, '\00'))  # Write the frame...
 
-        if args.debug:
-            print(frame.encode('hex'))
+            if args.debug:
+                print(frame.encode('hex'))
 
-        resp = ser.read()  # Wait for an OK from the bootloader
+            resp = ser.read()  # Wait for an OK from the bootloader
 
-        time.sleep(0.1)
+            time.sleep(0.1)
 
-        if resp != RESP_OK:
-            raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
-
-        if args.debug:
-            print("Resp: {}".format(ord(resp)))
+            if resp != RESP_OK:
+                print "Resending frame"
+                
 
     print("Done writing firmware.")
 
