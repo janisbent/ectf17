@@ -37,7 +37,6 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include "aes.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -160,6 +159,26 @@ void readback(void)
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
+int read_frame(unsigned char *data, int start_index)
+{
+    unsigned char frame;
+    unsigned char rcv = 0;
+    int frame_length;
+
+    rcv = UART1_getchar();
+    frame_length = (int)rcv << 8;
+    rcv = UART1_getchar();
+    frame_length += (int)rcv;
+
+    for (int i = 0; i < frame_length; i++) {
+        wdt_reset();
+        //frame = UART1_getchar();
+        data[start_index + i] = UART1_getchar();
+    }
+
+    return frame_length;
+}
+
 /***********************************************
  **************** LOAD FIRMWARE ****************
  ***********************************************/
@@ -228,29 +247,7 @@ void load_firmware(void)
     {
         wdt_reset();
 
-        // Get two bytes for the length.
-        rcv = UART1_getchar();
-        frame_length = (int)rcv << 8;
-        rcv = UART1_getchar();
-        frame_length += (int)rcv;
-
-        UART0_putchar((unsigned char)rcv);
-        wdt_reset();
-
-        for(int i = 0; i < frame_length; i++) {
-            frame[i] = UART1_getchar();
-            key[i] = (unsigned char)i;
-            //output[i] = frame[i];
-        }
-
-        AES128_ECB_decrypt(frame, key, output);
-
-        // Get the number of bytes specified
-        for(int i = 0; i < frame_length; ++i){
-            wdt_reset();
-            data[data_index] = output[i];
-            data_index += 1;
-        } //for
+        data_index += read_frame(data, data_index);
 
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0)
