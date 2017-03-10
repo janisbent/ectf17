@@ -130,6 +130,8 @@ void boot_firmware(void)
 void readback(void)
 {
     uint8_t frame[16];
+    uint8_t key[16];
+    uint8_t output[16];
     uint32_t addr;
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -163,14 +165,16 @@ void readback(void)
     {
         for (int i = 0; i < FRAME_SIZE; i++) {
             frame[i] = pgm_read_byte_far(addr++);
+            key[i] = (uint8_t)i;
             wdt_reset();
         }
 
+        AES128_ECB_encrypt(frame, key, output);
         // ENCRYPT HERE
 
         // Write the byte to UART1.
         for (int i = 0; i < FRAME_SIZE; i++) {
-            UART1_putchar(frame[i]);
+            UART1_putchar(output[i]);
             wdt_reset();
         }
     }
