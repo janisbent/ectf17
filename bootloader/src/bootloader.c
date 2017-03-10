@@ -258,12 +258,14 @@ void load_firmware(void)
     read_frame(data, 0);
 
     // Get version.
-    version = data[0];
-    version = data[1];
+    version = ((uint16_t)data[0]) << 8;
+    version |= ((uint16_t)data[1]);
+    version = 0; ////////////// TODO TODO TODO TODO ///////////////
 
     // Get size.
-    size = data[2];
-    size = data[3];
+    size = ((uint16_t)data[2]) << 8;
+    size |= ((uint16_t)data[3]);
+    size = 1000; ///////////// TODO TODO TODO TODO /////////////
 
     // Compare to old version and abort if older (note special case for version
     // 0).

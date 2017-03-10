@@ -79,4 +79,4 @@ if __name__ == '__main__':
     write_fuse_file('hfuse', 0x18)
     write_fuse_file('efuse', 0xFC)
 
-    os.system("avrdude -P usb -p m1284p -c dragon_isp -B 200 -u -U flash:w:flash.hex:i -U eeprom:w:eeprom.hex:i -U lfuse:w:lfuse.hex:i -U hfuse:w:hfuse.hex:i -U efuse:w:efuse.hex:i")
+    #os.system("avrdude -P usb -p m1284p -c dragon_isp -B 200 -u -U flash:w:flash.hex:i -U eeprom:w:eeprom.hex:i -U lfuse:w:lfuse.hex:i -U hfuse:w:hfuse.hex:i -U efuse:w:efuse.hex:i")
