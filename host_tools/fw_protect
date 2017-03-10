@@ -48,6 +48,6 @@ if __name__ == '__main__':
 
     with open(args.outfile, 'wb+') as outfile:
         data = json.dumps(data)
-        #data = zlib.compress(data)
+        data = zlib.compress(data)
         outfile.write(data)
 

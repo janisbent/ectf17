@@ -31,3 +31,6 @@ FW_*
 
 # Ignore virtual box logs
 *.log
+
+avr-crypto-lib
+tiny*

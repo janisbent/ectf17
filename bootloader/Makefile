@@ -1,7 +1,7 @@
 # Hardware configuration settings.
 MCU = atmega1284p
 F_CPU = 20000000
-BAUD = 9600
+BAUD = 115200
 
 # Secret password default value.
 PASSWORD ?= password
@@ -48,15 +48,12 @@ uart.o:
 sys_startup.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sys_startup.c
 
-aes.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c
-
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o #aes.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o
         # Create an .elf file for the bootloader with all debug symbols included.
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o #aes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o
 
 strip: bootloader_dbg.elf
 	# Create a version of the bootloder .elf file with all the debug symbols stripped.
