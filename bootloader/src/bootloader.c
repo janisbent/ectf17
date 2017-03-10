@@ -198,8 +198,6 @@ int read_frame(unsigned char *data, int data_index)
     } //for
     UART1_putchar(OK); // Acknowledge the frame.
 
-    UART1_putchar((char)frame_length);////////////////
-
     return frame_length;
 }
 
@@ -268,17 +266,13 @@ void load_firmware(void)
     {
         wdt_reset();
 
-        UART1_putchar((char)data_index);////////
         data_index_old = data_index;
         data_index += read_frame(data, data_index);
 
-        UART1_putchar((char)data_index);//////////
 
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || data_index_old == data_index)
         {
-            //UART1_putchar('I');/////////
-
             wdt_reset();
             program_flash(page, data);
             page += SPM_PAGESIZE;

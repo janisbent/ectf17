@@ -119,7 +119,6 @@ if __name__ == '__main__':
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
     for idx, frame in enumerate(firmware.frames()):
-        print("\n index is : " +str(idx)+ "\n")
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
 
@@ -128,11 +127,7 @@ if __name__ == '__main__':
         if args.debug:
             print(frame.encode('hex'))
 
-        print "\nData index before: " + ser.read().encode('hex')
         resp = ser.read()  # Wait for an OK from the bootloader
-
-        print "Received frame length in function: " + ser.read().encode('hex')
-        print "Data index after: " + ser.read().encode('hex') + "\n"
 
         time.sleep(0.1)
 
