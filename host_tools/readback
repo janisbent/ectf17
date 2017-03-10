@@ -58,6 +58,10 @@ if __name__ == '__main__':
     # Send the request.
     ser.write(request)
     
+    #print "Header frame: " + ser.read(16).encode('hex')
+    #print "Header key: " + ser.read(16).encode('hex')
+    #print "Header decrypted: " + ser.read(16).encode('hex')
+
     resp = ser.read()
     if resp != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))

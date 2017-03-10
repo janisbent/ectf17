@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=9600, timeout=2)
+    ser = serial.Serial(args.port, baudrate=9600, timeout=3)
 
     # Open our firmware file.
     print('Opening firmware file...')
@@ -113,10 +113,15 @@ if __name__ == '__main__':
         print(metadata.encode('hex'))
     ser.write(metadata)
 
+    #print "Header frame: " + ser.read(16).encode('hex')
+    #print "Header key: " + ser.read(16).encode('hex')
+    #print "Header decrypted: " + ser.read(16).encode('hex')
+
     # Wait for an OK from the bootloader.
     resp = ser.read()
     if resp != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+
 
     for idx, frame in enumerate(firmware.frames()):
         if args.debug:
@@ -127,6 +132,9 @@ if __name__ == '__main__':
         if args.debug:
             print(frame.encode('hex'))
 
+        #print "Body frame: " + ser.read(16).encode('hex')
+        #print "Body key: " + ser.read(16).encode('hex')
+        #print "Body decrypted: " + ser.read(16).encode('hex')
         resp = ser.read()  # Wait for an OK from the bootloader
 
         time.sleep(0.1)

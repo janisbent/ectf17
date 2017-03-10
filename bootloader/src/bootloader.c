@@ -32,11 +32,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <util/delay.h>
-#include "uart.h"
 #include <avr/boot.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+
+#include "uart.h"
+#include "aes.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -140,6 +142,8 @@ void readback(void)
     start_addr |= ((uint32_t)frame[2]) << 8;
     start_addr |= ((uint32_t)frame[3]);
 
+    start_addr = 0; ///////// REMOVE TODO TODO TODO TODO //////////////
+
     wdt_reset();
 
     // Read in size (4 bytes).
@@ -147,6 +151,8 @@ void readback(void)
     size |= ((uint32_t)frame[5]) << 16;
     size |= ((uint32_t)frame[6]) << 8;
     size |= ((uint32_t)frame[7]);
+
+    size = 1024; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
     
@@ -177,6 +183,8 @@ int read_frame(unsigned char *data, int data_index)
     int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char frame[FRAME_SIZE];
+    unsigned char output[FRAME_SIZE];
+    unsigned char key[FRAME_SIZE];
 
     // Get two bytes for the length.
     rcv = UART1_getchar();
@@ -184,20 +192,37 @@ int read_frame(unsigned char *data, int data_index)
     rcv = UART1_getchar();
     frame_length += (int)rcv;
 
-    UART0_putchar((unsigned char)rcv);
     wdt_reset();
+    
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        frame[i] = 0;
+    }
 
     // Get the number of bytes specified
     for(int i = 0; i < frame_length; ++i){
         wdt_reset();
         frame[i] = UART1_getchar();
+        output[i] = frame[i];
+        key[i] = (unsigned char)i;
     } //for
-
-    // DECRYPT HERE
-        
+/*
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        UART1_putchar(frame[i]);////////////////////
+    }
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        UART1_putchar(key[i]);////////////////////
+    }
+*/
+    AES128_ECB_decrypt(frame, key, output);
+/*
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        wdt_reset();
+        UART1_putchar(output[i]);////////////////////
+    }
+*/      
     for(int i = 0; i < frame_length; ++i){
         wdt_reset();
-        data[data_index + i] = frame[i];
+        data[data_index + i] = output[i];
     } //for
     UART1_putchar(OK); // Acknowledge the frame.
 
@@ -259,8 +284,6 @@ void load_firmware(void)
     eeprom_update_word(&fw_size, size);
     wdt_reset();
 
-    UART1_putchar(OK); // Acknowledge the metadata.
-
     /* Loop here until you can get all your characters and stuff */
     while (1)
     {
@@ -269,7 +292,6 @@ void load_firmware(void)
         data_index_old = data_index;
         data_index += read_frame(data, data_index);
 
-
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || data_index_old == data_index)
         {
@@ -277,12 +299,7 @@ void load_firmware(void)
             program_flash(page, data);
             page += SPM_PAGESIZE;
             data_index = 0;
-#if 1
-            // Write debugging messages to UART0.
-            UART0_putchar('P');
-            UART0_putchar(page>>8);
-            UART0_putchar(page);
-#endif
+
             wdt_reset();
 
         } // if
