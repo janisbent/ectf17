@@ -53,6 +53,7 @@ int read_frame(unsigned char *data, int data_index);
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 
+
 int main(void)
 {
     // Init UART1 (virtual com port)
@@ -133,26 +134,44 @@ void readback(void)
     uint8_t key[16];
     uint8_t output[16];
     uint32_t addr;
+    uint32_t nonce;
+    uint32_t NONCE = 0x01020304;//////////////// TODO TODO TODO TODO //////////
+    uint32_t start_addr;
+    uint32_t size;
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
     read_frame(frame, 0);
 
     // Read in start address (4 bytes).
-    uint32_t start_addr = ((uint32_t)frame[0]) << 24;
-    start_addr |= ((uint32_t)frame[1]) << 16;
-    start_addr |= ((uint32_t)frame[2]) << 8;
-    start_addr |= ((uint32_t)frame[3]);
+    nonce  = ((uint32_t)frame[0]) << 24;
+    nonce |= ((uint32_t)frame[1]) << 16;
+    nonce |= ((uint32_t)frame[2]) << 8;
+    nonce |= ((uint32_t)frame[3]);
+    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
+
+    if (nonce != NONCE) {
+        UART1_putchar(ERROR); // Reject the metadata.
+        while(1) {
+            __asm__ __volatile__("");
+        }
+    }
+
+    // Read in start address (4 bytes).
+    start_addr  = ((uint32_t)frame[4]) << 24;
+    start_addr |= ((uint32_t)frame[5]) << 16;
+    start_addr |= ((uint32_t)frame[6]) << 8;
+    start_addr |= ((uint32_t)frame[7]);
 
     start_addr = 0; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
 
     // Read in size (4 bytes).
-    uint32_t size = ((uint32_t)frame[4]) << 24;
-    size |= ((uint32_t)frame[5]) << 16;
-    size |= ((uint32_t)frame[6]) << 8;
-    size |= ((uint32_t)frame[7]);
+    size  = ((uint32_t)frame[8]) << 24;
+    size |= ((uint32_t)frame[9]) << 16;
+    size |= ((uint32_t)frame[10]) << 8;
+    size |= ((uint32_t)frame[11]);
 
     size = 1024; ///////// REMOVE TODO TODO TODO TODO //////////////
 
@@ -209,21 +228,10 @@ int read_frame(unsigned char *data, int data_index)
         output[i] = frame[i];
         key[i] = (unsigned char)i;
     } //for
-/*
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        UART1_putchar(frame[i]);////////////////////
-    }
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        UART1_putchar(key[i]);////////////////////
-    }
-*/
+
+    // Decrypt frame
     AES128_ECB_decrypt(frame, key, output);
-/*
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        wdt_reset();
-        UART1_putchar(output[i]);////////////////////
-    }
-*/      
+    
     for(int i = 0; i < frame_length; ++i){
         wdt_reset();
         data[data_index + i] = output[i];
@@ -245,6 +253,8 @@ void load_firmware(void)
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
+    uint32_t nonce = 0;
+    uint32_t NONCE = 0x01020304;/////////////////// TODO TODO TODO TODO ///////////
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -267,6 +277,12 @@ void load_firmware(void)
     size |= ((uint16_t)data[3]);
     size = 1000; ///////////// TODO TODO TODO TODO /////////////
 
+    nonce = ((uint32_t)data[4]) << 24;
+    nonce |= ((uint32_t)data[5]) << 16;
+    nonce |= ((uint32_t)data[6]) << 8;
+    nonce |= ((uint32_t)data[7]);
+    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
+
     // Compare to old version and abort if older (note special case for version
     // 0).
     if (version != 0 && version < eeprom_read_word(&fw_version))
@@ -283,6 +299,13 @@ void load_firmware(void)
         // Update version number in EEPROM.
         wdt_reset();
         eeprom_update_word(&fw_version, version);
+    }
+
+    if (nonce != NONCE) {
+        UART1_putchar(ERROR); // Reject the metadata.
+        while(1) {
+            __asm__ __volatile__("");
+        }
     }
 
     // Write new firmware size to EEPROM.
