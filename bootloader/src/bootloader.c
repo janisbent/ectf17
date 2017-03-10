@@ -40,6 +40,7 @@
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
+#define FRAME_SIZE 16
 
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
@@ -125,6 +126,8 @@ void boot_firmware(void)
 
 void readback(void)
 {
+    uint8_t frame [16];
+    uint32_t addr;
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
@@ -143,17 +146,24 @@ void readback(void)
     size |= ((uint32_t)UART1_getchar());
 
     wdt_reset();
+    
+    addr = start_addr;
 
     // Read the memory out to UART1.
-    for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
+    while (addr < start_addr + size)
     {
-        // Read a byte from flash.
-        unsigned char byte = pgm_read_byte_far(addr);
-        wdt_reset();
+        for (int i = 0; i < FRAME_SIZE; i++) {
+            frame[i] = pgm_read_byte_far(addr++);
+            wdt_reset();
+        }
+
+        // ENCRYPT HERE
 
         // Write the byte to UART1.
-        UART1_putchar(byte);
-        wdt_reset();
+        for (int i = 0; i < FRAME_SIZE; i++) {
+            UART1_putchar(frame[i]);
+            wdt_reset();
+        }
     }
 
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
