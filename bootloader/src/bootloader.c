@@ -169,17 +169,50 @@ void readback(void)
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
+int read_frame(unsigned char *data, int data_index)
+{
+    int frame_length = 0;
+    unsigned char rcv = 0;
+    unsigned char frame[FRAME_SIZE];
+
+    // Get two bytes for the length.
+    rcv = UART1_getchar();
+    frame_length = (int)rcv << 8;
+    rcv = UART1_getchar();
+    frame_length += (int)rcv;
+
+    UART0_putchar((unsigned char)rcv);
+    wdt_reset();
+
+    // Get the number of bytes specified
+    for(int i = 0; i < frame_length; ++i){
+        wdt_reset();
+        frame[i] = UART1_getchar();
+    } //for
+
+    // DECRYPT HERE
+        
+    for(int i = 0; i < frame_length; ++i){
+        wdt_reset();
+        data[data_index + i] = frame[i];
+    } //for
+    UART1_putchar(OK); // Acknowledge the frame.
+
+    UART1_putchar((char)frame_length);////////////////
+
+    return frame_length;
+}
+
 /***********************************************
  **************** LOAD FIRMWARE ****************
  ***********************************************/
 
 void load_firmware(void)
 {
-    int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
-    unsigned char frame[FRAME_SIZE];
     unsigned int data_index = 0;
+    unsigned int data_index_old = 0;
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
@@ -235,34 +268,17 @@ void load_firmware(void)
     {
         wdt_reset();
 
-        // Get two bytes for the length.
-        rcv = UART1_getchar();
-        frame_length = (int)rcv << 8;
-        rcv = UART1_getchar();
-        frame_length += (int)rcv;
+        UART1_putchar((char)data_index);////////
+        data_index_old = data_index;
+        data_index += read_frame(data, data_index);
 
-        UART0_putchar((unsigned char)rcv);
-        wdt_reset();
-
-        // Get the number of bytes specified
-        for(int i = 0; i < frame_length; ++i){
-            wdt_reset();
-            frame[i] = UART1_getchar();
-        } //for
-
-        // DECRYPT HERE
-            
-        for(int i = 0; i < frame_length; ++i){
-            wdt_reset();
-            data[data_index + i] = frame[i];
-        } //for
-        UART1_putchar(OK); // Acknowledge the frame.
-
-        data_index += frame_length;
+        UART1_putchar((char)data_index);//////////
 
         // If we filed our page buffer, program it
-        if(data_index == SPM_PAGESIZE || frame_length == 0)
+        if(data_index == SPM_PAGESIZE || data_index_old == data_index)
         {
+            //UART1_putchar('I');/////////
+
             wdt_reset();
             program_flash(page, data);
             page += SPM_PAGESIZE;
@@ -276,6 +292,7 @@ void load_firmware(void)
             wdt_reset();
 
         } // if
+
 
     } // while(1)
 }
@@ -298,7 +315,6 @@ void load_firmware(void)
 void program_flash(uint32_t page_address, unsigned char *data)
 {
     int i = 0;
-
     boot_page_erase_safe(page_address);
 
     for(i = 0; i < SPM_PAGESIZE; i += 2)
