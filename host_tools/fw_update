@@ -44,8 +44,7 @@ class Firmware(object):
             data = fw_file.read()
             data = zlib.decompress(data)
             data = json.loads(data)
-            self.version = data['version']
-            self.size = data['firmware_size']
+            self.header = data['version']
             self.hex_data = StringIO(data['hex_data'])
 
         self.reader = IntelHex(self.hex_data)
@@ -107,8 +106,8 @@ if __name__ == '__main__':
     while ser.read(1) != 'U':
         pass
 
-    # Send size and version to bootloader.
-    metadata = struct.pack('>HHH', 4, firmware.version, firmware.size)
+    # Send header to the bootloader
+    metadata = struct.pack('>H16s', 16, firmware.header)
     if args.debug:
         print(metadata.encode('hex'))
     ser.write(metadata)
@@ -121,7 +120,7 @@ if __name__ == '__main__':
     resp1 = ser.read()
     resp2 = ser.read()
     if resp1 != RESP_OK or resp2 != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp2)))
 
     for idx, frame in enumerate(firmware.frames()):
         if args.debug:
