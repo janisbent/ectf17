@@ -43,7 +43,7 @@ class Firmware(object):
     def __init__(self, fw_filename):
         with open(fw_filename, 'rb') as fw_file:
             data = fw_file.read()
-            data = zlib.decompress(data)
+            #data = zlib.decompress(data)
             data = json.loads(data)
             self.version = data['version']
             self.size = data['firmware_size']
