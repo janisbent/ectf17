@@ -129,6 +129,7 @@ void boot_firmware(void)
 void readback(void)
 {
     uint8_t frame [16];
+    uint32_t addr;
     // Start the Watchdog Timer
     //wdt_enable(WDTO_2S);
 
@@ -146,14 +147,14 @@ void readback(void)
     size |= ((uint32_t)UART1_getchar()) << 8;
     size |= ((uint32_t)UART1_getchar());
 
+    addr = start_addr;
     //wdt_reset();
 
     // Read the memory out to UART1.
-    for(uint32_t addr = start_addr; addr < start_addr + size; ++addr)
+    while (addr < start_addr + size)
     {
-<<<<<<< HEAD:bootloader/src/bootloader.c
         for (int i = 0; i < FRAME_SIZE; i++) {
-            frame[i] = pgm_read_byte_far(addr);
+            frame[i] = pgm_read_byte_far(addr++);
             wdt_reset();
         }
 
@@ -163,15 +164,6 @@ void readback(void)
             UART1_putchar(frame[i]);
             wdt_reset();
         }
-=======
-        // Read a byte from flash.
-        unsigned char byte = pgm_read_byte_far(addr);
-        //wdt_reset();
-
-        // Write the byte to UART1.
-        UART1_putchar(byte);
-        //wdt_reset();
->>>>>>> 1b86658696295a9b67cd19b72aff483bc03736c7:bootloader/src/main.c
     }
 
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
