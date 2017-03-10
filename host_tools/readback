@@ -31,7 +31,7 @@ def construct_request(start_addr, num_bytes):
     except:
         pass # File not found
 
-    return struct.pack('>II', start_addr, num_bytes)
+    return struct.pack('>HII', 8, start_addr, num_bytes)
 
 
 if __name__ == '__main__':
@@ -57,6 +57,10 @@ if __name__ == '__main__':
 
     # Send the request.
     ser.write(request)
+    
+    resp = ser.read()
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
     # Read the data and write it to stdout (hex encoded).
     data = ser.read(int(args.num_bytes))

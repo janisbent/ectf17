@@ -108,7 +108,7 @@ if __name__ == '__main__':
         pass
 
     # Send size and version to bootloader.
-    metadata = struct.pack('>HH', firmware.version, firmware.size)
+    metadata = struct.pack('>HHH', 4, firmware.version, firmware.size)
     if args.debug:
         print(metadata.encode('hex'))
     ser.write(metadata)
