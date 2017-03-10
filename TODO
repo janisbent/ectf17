@@ -11,3 +11,5 @@ bootloader:
         Add possibility of rejection
     Add encryption to readback response
         Break readback into 16B frames
+
+    remove hardcoded sessions
