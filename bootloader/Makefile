@@ -48,15 +48,31 @@ uart.o:
 sys_startup.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sys_startup.c
 
+###################### ADDED FOR ENCRYPTION ###############################
+
+sha1.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha1.c
+
+mp_math.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/mp_math.c
+
+dsa_verify.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/dsa_verify.c
+
+verify.o: sha1.o mp_math.o dsa_verify.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/verify.c
+
 aes.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c
+
+###########################################################################
 
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes.o #verify.o
         # Create an .elf file for the bootloader with all debug symbols included.
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o aes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o aes.o #verify.o
 
 strip: bootloader_dbg.elf
 	# Create a version of the bootloder .elf file with all the debug symbols stripped.
