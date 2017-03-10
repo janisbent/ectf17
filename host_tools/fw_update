@@ -118,8 +118,9 @@ if __name__ == '__main__':
     #print "Header decrypted: " + ser.read(16).encode('hex')
 
     # Wait for an OK from the bootloader.
-    resp = ser.read()
-    if resp != RESP_OK:
+    resp1 = ser.read()
+    resp2 = ser.read()
+    if resp1 != RESP_OK or resp2 != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
     for idx, frame in enumerate(firmware.frames()):

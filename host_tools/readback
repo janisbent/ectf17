@@ -62,9 +62,10 @@ if __name__ == '__main__':
     #print "Header key: " + ser.read(16).encode('hex')
     #print "Header decrypted: " + ser.read(16).encode('hex')
 
-    resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+    resp1 = ser.read()
+    resp2 = ser.read()
+    if resp1 != RESP_OK or resp2 != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp1)))
 
     # Read the data and write it to stdout (hex encoded).
     data = ser.read(int(args.num_bytes))

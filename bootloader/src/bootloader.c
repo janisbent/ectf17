@@ -155,6 +155,8 @@ void readback(void)
         while(1) {
             __asm__ __volatile__("");
         }
+    } else {
+        UART1_putchar(OK);
     }
 
     // Read in start address (4 bytes).
@@ -267,21 +269,32 @@ void load_firmware(void)
 
     read_frame(data, 0);
 
+    // Get nonce
+    nonce  = ((uint32_t)data[0]) << 24;
+    nonce |= ((uint32_t)data[1]) << 16;
+    nonce |= ((uint32_t)data[2]) << 8;
+    nonce |= ((uint32_t)data[3]);
+    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
+
+    if (nonce != NONCE) {
+        UART1_putchar(ERROR); // Reject the metadata.
+        while(1) {
+            __asm__ __volatile__("");
+        }
+    } else {
+        UART1_putchar(OK);
+    }
+
     // Get version.
-    version = ((uint16_t)data[0]) << 8;
-    version |= ((uint16_t)data[1]);
+    version  = ((uint16_t)data[4]) << 8;
+    version |= ((uint16_t)data[5]);
     version = 0; ////////////// TODO TODO TODO TODO ///////////////
 
     // Get size.
-    size = ((uint16_t)data[2]) << 8;
-    size |= ((uint16_t)data[3]);
+    size  = ((uint16_t)data[6]) << 8;
+    size |= ((uint16_t)data[7]);
     size = 1000; ///////////// TODO TODO TODO TODO /////////////
 
-    nonce = ((uint32_t)data[4]) << 24;
-    nonce |= ((uint32_t)data[5]) << 16;
-    nonce |= ((uint32_t)data[6]) << 8;
-    nonce |= ((uint32_t)data[7]);
-    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
 
     // Compare to old version and abort if older (note special case for version
     // 0).
@@ -299,13 +312,6 @@ void load_firmware(void)
         // Update version number in EEPROM.
         wdt_reset();
         eeprom_update_word(&fw_version, version);
-    }
-
-    if (nonce != NONCE) {
-        UART1_putchar(ERROR); // Reject the metadata.
-        while(1) {
-            __asm__ __volatile__("");
-        }
     }
 
     // Write new firmware size to EEPROM.
