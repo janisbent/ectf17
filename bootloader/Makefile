@@ -70,9 +70,9 @@ aes.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes.o #verify.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes.o verify.o
         # Create an .elf file for the bootloader with all debug symbols included.
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o aes.o #verify.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o aes.o verify.o
 
 strip: bootloader_dbg.elf
 	# Create a version of the bootloder .elf file with all the debug symbols stripped.
