@@ -36,3 +36,5 @@ avr-crypto-lib
 tiny*
 
 2017-*
+
+keys.h

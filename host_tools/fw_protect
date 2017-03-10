@@ -9,6 +9,7 @@ import struct
 import json
 import zlib
 import os
+from math import ceil
 
 from cStringIO import StringIO
 from intelhex import IntelHex
@@ -37,7 +38,7 @@ if __name__ == '__main__':
     # Get version, size, and nonce.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
-    nonce = Crypt.getNonce()
+    nonce = crypt.getNonce()
 
     # Pack and encrypt header
     header = struct.pack(">IHH", nonce, version, firmware_size)
@@ -59,14 +60,14 @@ if __name__ == '__main__':
 
     # Encode the data as json and write to outfile.
     data = {
-        'header'   : enc_header,
+        'header'   : enc_header.encode('hex'),
         'version'  : version,
         'size'     : firmware_size,
-        'hex_data' : enc_hex_data
+        'hex_data' : enc_hex_data.encode('hex')
     }
 
     with open(args.outfile, 'wb+') as outfile:
-        data = json.dumps(data)
+        data = json.dumps(data, encoding="ascii")
         data = zlib.compress(data)
         outfile.write(data)
 
