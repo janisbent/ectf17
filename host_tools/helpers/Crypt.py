@@ -92,7 +92,7 @@ class Crypt:
 
         return msg + get_random_bytes(size - len(msg))
 
-    # http://stackoverflow.com/a/28524760	
+    # http://stackoverflow.com/a/28524760
     def __int2bytes(self, i):
         hex_string = '%x' % i
         n = len(hex_string)
