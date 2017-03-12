@@ -274,7 +274,7 @@ void load_firmware(void)
     nonce |= ((uint32_t)data[1]) << 16;
     nonce |= ((uint32_t)data[2]) << 8;
     nonce |= ((uint32_t)data[3]);
-    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
+    //nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
 
     if (nonce != NONCE) {
         UART1_putchar(ERROR); // Reject the metadata.

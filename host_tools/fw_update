@@ -45,13 +45,14 @@ class Firmware(object):
             #data = zlib.decompress(data)
             data = json.loads(data, encoding="ascii")
             self.header = data['header'].decode('hex')
-            self.fw_size = data['size']
+            self.size = data['size']
+            self.version = data['version']
             self.data = data['data'].decode('hex')
 
 
     def frames(self):
     # Construct frame from data and length.
-        for address in range(0, self.fw_size, self.BLOCK_SIZE):
+        for address in range(0, self.size, self.BLOCK_SIZE):
             # Frame should be BLOCK_SIZE unless it is the last frame.
             data = self.data[address:address + self.BLOCK_SIZE]
             # Get length of frame.
