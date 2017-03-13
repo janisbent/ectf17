@@ -36,6 +36,7 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <stdbool.h>
 
 #include "uart.h"
 #include "aes.h"
@@ -108,6 +109,7 @@ void boot_firmware(void)
 
     wdt_reset();
 
+    addr = 0x3da;
     // Write out release message to UART0.
     do
     {
@@ -257,6 +259,7 @@ void load_firmware(void)
     uint16_t size = 0;
     uint32_t nonce = 0;
     uint32_t NONCE = 0x01020304;/////////////////// TODO TODO TODO TODO ///////////
+    bool last_frame = false;
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -328,15 +331,19 @@ void load_firmware(void)
         data_index += read_frame(data, data_index);
 
         // If we filed our page buffer, program it
-        if(data_index == SPM_PAGESIZE || data_index_old == data_index)
+        if((data_index == SPM_PAGESIZE || data_index_old == data_index) && !last_frame)
         {
+            wdt_reset();
+            if (data_index_old == data_index) {
+                last_frame = true;
+            }
+
             wdt_reset();
             program_flash(page, data);
             page += SPM_PAGESIZE;
             data_index = 0;
 
             wdt_reset();
-
         } // if
 
 
