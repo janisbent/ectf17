@@ -28,58 +28,38 @@
  *
  */
 
-/* TODO TODO TODO TODO TODO TODO TODO
- * 
- * set lockbits programatically
- * fix file comments
- */
-
-
 #include <avr/io.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdbool.h>
 #include <util/delay.h>
 #include <avr/boot.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <stdbool.h>
 
 #include "uart.h"
-#include "crypto.h"
+#include "aes.h"
+#include "keys.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
-#define ABORT ((unsigned char)0xff)
-#define HEADER_SIZE sizeof(Header_data)
+#define IV_SIZE 16
+
+void program_flash(uint32_t page_address, unsigned char *data);
+void load_firmware(void);
+void boot_firmware(void);
+void readback(void);
+void read_frame(unsigned char *data, unsigned char *key);
+void compare_nonces(unsigned char *data);
+void get_key(unsigned char *key);
+void generate_iv(uint8_t *iv, uint32_t seed, bool seed_rng);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 
-typedef struct Header_data {
-    uint16_t version;
-    uint16_t body_size;
-    uint16_t message_size;
-    bool passed;
-} Header_data;
-
-static inline void boot_firmware(void);
-
-static inline void readback(void);
-static inline void read_mem(uint32_t start_addr, uint32_t size);
-static inline void write_frame(uint8_t frame[], uint32_t frame_size);
-
-static inline void load_firmware(void);
-static inline void program_flash(uint32_t page_address, unsigned char *data);
-static inline unsigned int read_frame(unsigned char buffer[], 
-                                      unsigned int buffer_index, int retries);
-static inline Header_data check_header(void);
-static inline Header_data read_header(void);
-static inline void store_body(Header_data h);
-static inline void advance_buffer(unsigned char buffer[], 
-                                  unsigned int buffer_index);
-
-int main(void) 
+int main(void)
 {
     // Init UART1 (virtual com port)
     UART1_init();
@@ -111,22 +91,21 @@ int main(void)
     }
 } // main
 
+/***********************************************
+ **************** BOOT FIRMWARE ****************
+ ***********************************************/
 
-/***************************************************
- ***************** BOOT FIRMWARE *******************
- ***************************************************/
-
-static inline void boot_firmware(void)
+void boot_firmware(void)
 {
     // Start the Watchdog Timer.
-    wdt_enable(WDTO_2S);
+    wdt_enable(WDTO_500MS);
 
     // Write out the release message.
     uint8_t cur_byte;
-    uint32_t message_addr = (uint32_t)eeprom_read_word(&fw_size) - 1;
+    uint32_t addr = (uint32_t)eeprom_read_word(&fw_size);
 
     // Reset if firmware size is 0 (indicates no firmware is loaded).
-    if(message_addr == 0)
+    if(addr == 0)
     {
         // Wait for watchdog timer to reset.
         while(1) __asm__ __volatile__("");
@@ -137,9 +116,9 @@ static inline void boot_firmware(void)
     // Write out release message to UART0.
     do
     {
-        cur_byte = pgm_read_byte_far(message_addr);
+        cur_byte = pgm_read_byte_far(addr);
         UART0_putchar(cur_byte);
-        ++message_addr;
+        ++addr;
     } while (cur_byte != 0);
 
     // Stop the Watchdog Timer.
@@ -150,137 +129,209 @@ static inline void boot_firmware(void)
     asm ("jmp 0000");
 }
 
+/***********************************************
+ ****************** READBACK *******************
+ ***********************************************/
 
-/***************************************************
- ******************** READBACK *********************
- ***************************************************/
-
-static inline void readback(void)
+void readback(void)
 {
-    unsigned char frame[FRAME_SIZE];
-    unsigned int frame_index = 0;
-    uint32_t start_addr = 0;
-    uint32_t size = 0;
+    uint8_t frame[SPM_PAGESIZE];
+    uint8_t output[SPM_PAGESIZE];
+    uint8_t key[IV_SIZE];
+    uint8_t iv[IV_SIZE];
+    uint32_t addr;
+    uint32_t start_addr;
+    uint32_t size;
+	uint32_t seed;
 
     // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+    wdt_enable(WDTO_500MS);
 
-    // Read frame from UART1
-    while (read_frame(frame, frame_index, 0) < 0) ;
+	// Get key from memory and read header frame
+    get_key(key);
+    read_frame(frame, key);
+
+	// Check for valid decryption
+    compare_nonces(frame);
 
     // Read in start address (4 bytes).
-    start_addr  = ((uint32_t)frame[frame_index++]) << 24;
-    start_addr |= ((uint32_t)frame[frame_index++]) << 16;
-    start_addr |= ((uint32_t)frame[frame_index++]) << 8;
-    start_addr |= ((uint32_t)frame[frame_index++]);
+    start_addr  = ((uint32_t)frame[4]) << 24;
+    start_addr |= ((uint32_t)frame[5]) << 16;
+    start_addr |= ((uint32_t)frame[6]) << 8;
+    start_addr |= ((uint32_t)frame[7]);
+    addr = start_addr;
+
     wdt_reset();
 
     // Read in size (4 bytes).
-    size  = ((uint32_t)frame[frame_index++]) << 24;
-    size |= ((uint32_t)frame[frame_index++]) << 16;
-    size |= ((uint32_t)frame[frame_index++]) << 8;
-    size |= ((uint32_t)frame[frame_index++]);
+    size  = ((uint32_t)frame[8]) << 24;
+    size |= ((uint32_t)frame[9]) << 16;
+    size |= ((uint32_t)frame[10]) << 8;
+    size |= ((uint32_t)frame[11]);
+
     wdt_reset();
 
+    // Read in rng seed (4 bytes).
+    seed  = ((uint32_t)frame[12]) << 24;
+    seed |= ((uint32_t)frame[13]) << 16;
+    seed |= ((uint32_t)frame[14]) << 8;
+    seed |= ((uint32_t)frame[15]);
+
+	wdt_reset();
+
+	// Generate the first IV
+	generate_iv(iv, seed, true);
+
     // Read the memory out to UART1.
-    read_mem(start_addr, size);
-
-    // Wait for watchdog timer to reset.
-    while(1) __asm__ __volatile__("");
-}
-
-static inline void read_mem(uint32_t start_addr, uint32_t size)
-{
-    unsigned char frame[FRAME_SIZE];
-    unsigned char buffer[SPM_PAGESIZE];
-    unsigned int buffer_index = 0;
-    uint32_t addr = start_addr;
-
     while (addr < start_addr + size)
     {
-        // Fill page from memory
-        for (buffer_index = 0; buffer_index < SPM_PAGESIZE 
-                               && addr < start_addr + size; addr++)
-        {
-            buffer[buffer_index++] = pgm_read_byte_far(addr);
+        for (int i = 0; i < SPM_PAGESIZE; i++) {
+            frame[i] = pgm_read_byte_far(addr++);
             wdt_reset();
         }
 
-        // Encrypt page of data
-        encrypt_frame(frame, buffer, buffer_index);
-        wdt_reset();
+		// Encrypt page with CBC
+        AES128_CBC_encrypt_buffer(output, frame, SPM_PAGESIZE, key, iv);
 
-        // Write frame to UART1
-        write_frame(frame, buffer_index);
-        wdt_reset();
+		// Write IV
+		for (int i = 0; i < IV_SIZE; i++) {
+			UART1_putchar(iv[i]);
+		}
+
+		// Generate IV for next page
+		generate_iv(iv, 0, false);
+
+        // Write the byte to UART1.
+        for (int i = 0; i < SPM_PAGESIZE; i++) {
+            UART1_putchar(output[i]);
+            wdt_reset();
+        }
     }
+
+    while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
 /*
- * Reads one 512B frame of data from UART1, retrying up to retries times 
- * if verification fails and aborting after.
- *
- * Fills data into the buffer starting at buffer[buffer_index]
+ * Compares correct nonce against decrypted nonce and resets
+ * if nonces don't match
  */
-static inline unsigned int read_frame(unsigned char buffer[], 
-                                      unsigned int buffer_index, int retries)
+void compare_nonces(unsigned char *data)
 {
-    unsigned char frame[FRAME_SIZE];
-    unsigned int size = 0;
+    uint32_t nonce = 0;
+    uint32_t nonce_val = 0;
 
-retry_frame:
-    //UART1_putchar('S');/////////////
-    for (unsigned int data_index = 0; data_index < FRAME_SIZE; data_index++)
-    {
-        frame[data_index] = UART1_getchar();
-        wdt_reset();
-    }
-    //UART1_putchar('E');/////////////
-
-    size = decrypt_frame(frame, buffer, buffer_index);
-
-    // return if decryption succeeds
-    if (size > 0)
-    {
-        UART1_putchar(OK); // Acknowledge the frame.
-        return size;
+    // Get nonces
+    for (int i = 0; i < 4; i++) {
+        nonce |= ((uint32_t)data[i]) << (24 - i * 8);
+        nonce_val <<= 8;
+        nonce_val |= (uint32_t)eeprom_read_byte(&NONCE[i]);
     }
 
-    // if frame retries requested
-    if (retries-- > 0) 
-    {
-        UART1_putchar(ERROR);   // report rejected frame
-        goto retry_frame;       // reread frame
-    }
-
-    // abort with error
-    UART1_putchar(ABORT);
-    while(1) __asm__ __volatile__("");
-
-    // Silence compiler
-    return 0;
-}
-
-static inline void write_frame(uint8_t frame[], uint32_t frame_size)
-{
-    do
-    {
-        // write frame to UART1
-        for (int frame_index = 0; frame_index < frame_size; frame_index++)
-        {
-            UART1_putchar(frame[frame_index]);
+    // Compare nonces
+    if (nonce != nonce_val) {
+        UART1_putchar(ERROR); // Reject the metadata.
+        while(1) {
+            __asm__ __volatile__("");
         }
-        wdt_reset();
-    } while (UART1_getchar() == ERROR); // resend frame if rejected
+    } else {
+        UART1_putchar(OK);	// Accept metadata
+    }
 }
 
-/***************************************************
- ***************** LOAD FIRMWARE *******************
- ***************************************************/
-
-static inline void load_firmware(void)
+/* 
+ * Generate a random IV, seeding the random number generator
+ * the first time around
+ */
+void generate_iv(uint8_t *iv, uint32_t seed, bool seed_rng)
 {
-    Header_data h;
+	// Seed random number generator
+	if (seed_rng) {
+		srand(seed);
+	}
+
+	// Fill iv with random numbers
+	for (int i = 0; i < IV_SIZE; i++) {
+		wdt_reset();
+		iv[i] = (uint8_t)rand();
+	}
+}
+
+/*
+ * Read key from EEPROM
+ */
+void get_key(unsigned char *key)
+{
+    for (int i = 0; i < IV_SIZE; i++) {
+        key[i] = eeprom_read_byte(&KEY[i]);
+    }
+}
+
+/* 
+ * Reads a frame of data from UART1 and decrypts it in place
+ */
+void read_frame(unsigned char *data, unsigned char *key)
+{
+    int frame_length = 0;
+    unsigned char rcv = 0;
+	unsigned char iv[IV_SIZE];
+    unsigned char page[SPM_PAGESIZE];
+    unsigned char output[SPM_PAGESIZE];
+
+    // Get two bytes for the length.
+    rcv = UART1_getchar();
+    frame_length = (int)rcv << 8;
+    rcv = UART1_getchar();
+    frame_length += (int)rcv;
+	frame_length -= IV_SIZE;
+
+    wdt_reset();
+    
+	// Read IV for frame
+	for (int i = 0; i < IV_SIZE; i++) {
+		wdt_reset();
+		iv[i] = UART1_getchar();
+	}
+
+    // Receive frame
+    for (int i = 0; i < frame_length; ++i) {
+        wdt_reset();
+        page[i] = UART1_getchar();
+    }
+
+/*
+	for (int i = 0; i < IV_SIZE; i++) {
+		UART1_putchar(iv[i]);
+	}
+	for (int i = 0; i < frame_length; ++i) {
+		UART1_putchar(page[i]);
+	}
+*/
+    // Decrypt frame
+    AES128_CBC_decrypt_buffer(output, page, frame_length, key, iv);
+    
+	// Copy data to destination buffer
+    for(int i = 0; i < frame_length; ++i){
+        wdt_reset();
+        data[i] = output[i];
+    }
+
+    UART1_putchar(OK); // Acknowledge the frame.
+}
+
+/***********************************************
+ **************** LOAD FIRMWARE ****************
+ ***********************************************/
+
+void load_firmware(void)
+{
+    unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned char key[IV_SIZE];
+    unsigned int page = 0;
+    uint16_t version = 0;
+    uint16_t size = 0;
+
+    // Start the Watchdog Timer
+    wdt_enable(WDTO_500MS);
 
     /* Wait for data */
     while(!UART1_data_available())
@@ -288,150 +339,59 @@ static inline void load_firmware(void)
         __asm__ __volatile__("");
     }
 
-    // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+	// Get key from memory and read header frame
+    get_key(key);
+    read_frame(data, key);
 
-    // Get header data
-    h.passed = false;
-    do
+	// Check for proper decryption
+    compare_nonces(data);
+
+    // Get version.
+    version  = ((uint16_t)data[4]) << 8;
+    version |= ((uint16_t)data[5]);
+
+    // Get size.
+    size  = ((uint16_t)data[6]) << 8;
+    size |= ((uint16_t)data[7]);
+
+    // Compare to old version and abort if older (note special case for version
+    // 0).
+    if (version != 0 && version < eeprom_read_word(&fw_version))
     {
-        h = check_header();
-    } while (!h.passed);
-
-    //UART1_putchar(h.body_size >> 8);/////////////////////////////////////
-    //UART1_putchar(h.body_size);/////////////////////////////////////
-
-    // Write new firmware sizes to EEPROM.
-    wdt_reset();
-    eeprom_update_word(&fw_size, h.body_size);
-    wdt_reset();
-
-    // Get and store body data
-    store_body(h);
-
-    //UART1_putchar('D');////////////////
-}
-
-static inline Header_data check_header(void)
-{
-    Header_data h;
-    
-    // get header data
-    h = read_header();
-    wdt_reset();
-
-    // Pass if higher version or version 0 
-    if (h.version == 0 || h.version >= eeprom_read_word(&fw_version)) 
-    {
-        goto version_pass;
+        UART1_putchar(ERROR); // Reject the metadata.
+        // Wait for watchdog timer to reset.
+        while(1)
+        {
+            __asm__ __volatile__("");
+        }
     }
-
-    // Reject the metadata
-    UART1_putchar(ABORT);
-
-    // Wait for watchdog timer to reset.
-    while (1) __asm__ __volatile__("");
-   
-version_pass:
-    // Accept metadata
-    UART1_putchar(OK);
-
-    if (h.version != 0)
+    else if(version != 0)
     {
         // Update version number in EEPROM.
         wdt_reset();
-        eeprom_update_word(&fw_version, h.version);
+        eeprom_update_word(&fw_version, version);
     }
 
-    h.passed = true;
+    // Write new firmware size to EEPROM.
+    wdt_reset();
+    eeprom_update_word(&fw_size, size);
+    wdt_reset();
 
-    return h;
-}
-
-static inline Header_data read_header(void)
-{
-    unsigned char buffer[FRAME_SIZE];
-    unsigned int buffer_index = 0;
-    Header_data h;
-
-    read_frame(buffer, buffer_index, 0);
-
-    // parse decrypted header data to variables
-    for ( ; buffer_index < HEADER_SIZE; buffer_index += 2) 
+    /* Loop here until you can get all your characters and stuff */
+    while (1)
     {
-        switch (buffer_index) 
-        {
-            case 0 : h.version = (uint16_t)buffer[buffer_index] << 8;
-                     h.version += buffer[buffer_index + 1];
-                     break;
-            case 2 : h.body_size = (uint16_t)buffer[buffer_index] << 8;
-                     h.body_size += buffer[buffer_index + 1];
-                     break;
-            case 4 : h.message_size = (uint16_t)buffer[buffer_index] << 8;
-                     h.message_size += buffer[buffer_index + 1];
-                     break;
-        }
         wdt_reset();
-    }
 
-    return h;
-}
+        read_frame(data, key);
 
-static inline void store_body(Header_data h)
-{
-    unsigned char buffer[FRAME_SIZE * 3];
-    unsigned int buffer_index = 0;
-    unsigned int page = 0;
-    unsigned int size = 0;
-    unsigned int package_size = h.message_size + h.body_size;
-
-    for (unsigned int bytes_read = 0; bytes_read < package_size; 
-         bytes_read += size)
-    {
-        // Recieve one body frame 
-        size = read_frame(buffer, buffer_index, 3);
-        wdt_reset();
-        
-        buffer_index += size;
-
-        // Write full pages to buffer
-        while (buffer_index >= SPM_PAGESIZE)
-        {
-            // Program page to memory
-            program_flash(page, buffer);
-            wdt_reset();
-
-            // Move unwritten data up in buffer
-            advance_buffer(buffer, buffer_index);
-            wdt_reset();
-
-            // Remove page from buffer index and add to page
-            buffer_index -= SPM_PAGESIZE;
-            page += SPM_PAGESIZE;
-        }
-
-        wdt_reset();
-    }
-
-    // write last page to memory
-    if (buffer_index > 0) 
-    {
-        program_flash(page, buffer);
+		wdt_reset();
+		program_flash(page, data);
+		page += SPM_PAGESIZE;
     }
 }
 
-/*
- * Moves every element in the buffer up a page and 0s memory of old location
- */
-static inline void advance_buffer(unsigned char buffer[], 
-                                  unsigned int buffer_index)
-{
-    for (unsigned i = 0; i + SPM_PAGESIZE < buffer_index; i++)
-    {
-        buffer[i] = buffer[i + SPM_PAGESIZE];
-        buffer[i + SPM_PAGESIZE] = 0;
-    }
-}
+
+
 
 /*
  * To program flash, you need to access and program it in pages
@@ -445,13 +405,12 @@ static inline void advance_buffer(unsigned char buffer[],
  *
  * You must fill the buffer one word at a time
  */
-static inline void program_flash(uint32_t page_address, unsigned char *data)
+void program_flash(uint32_t page_address, unsigned char *data)
 {
     int i = 0;
-
     boot_page_erase_safe(page_address);
 
-    for (i = 0; i < SPM_PAGESIZE; i += 2)
+    for(i = 0; i < SPM_PAGESIZE; i += 2)
     {
         uint16_t w = data[i];    // Make a word out of two bytes
         w += data[i+1] << 8;
@@ -461,4 +420,48 @@ static inline void program_flash(uint32_t page_address, unsigned char *data)
     boot_page_write_safe(page_address);
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
+
+//
+// Interrupts
+//
+
+void bad_state()
+{
+    while(1)
+    {
+        __asm__ __volatile__("");
+    }
+}
+
+//ADC_vect ADC Conversion complete
+ISR(ADC_vect) {
+    bad_state();
+}
+
+//ANALOG_COMP_vect Analog Comparator
+ISR(ANALOG_COMP_vect, ISR_ALIASOF(ADC_vect));
+
+//INT0_vect External Interrupt 0
+ISR(INT0_vect, ISR_ALIASOF(ADC_vect));
+
+//INT1_vect External Interrupt Request 1
+ISR(INT1_vect, ISR_ALIASOF(ADC_vect));
+
+//INT2_vect External Interrupt Request 2
+ISR(INT2_vect, ISR_ALIASOF(ADC_vect));
+
+//SPI_STC_vect
+ISR(SPI_STC_vect, ISR_ALIASOF(ADC_vect));
+
+//SPM_READY_vect Store program mem read
+ISR(SPM_READY_vect, ISR_ALIASOF(ADC_vect));
+
+//TWI_vect 2-wire serial interface
+ISR(TWI_vect, ISR_ALIASOF(ADC_vect));
+
+//USART1_RX_vect USART1 Rx complete
+ISR(USART1_RX_vect, ISR_ALIASOF(ADC_vect));
+
+//WDT_vect watchdog timeout interrupt
+ISR(WDT_vect, ISR_ALIASOF(ADC_vect));
 

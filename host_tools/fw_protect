@@ -4,19 +4,16 @@ Firmware Bundle-and-Protect Tool
 
 """
 import argparse
-import shutil
 import struct
 import os
-
-
-from cStringIO import StringIO
-from intelhex import IntelHex
-#from helpers.Crypt import Crypt
-#from helpers.Crypt import MAX_DATA_SIZE
+import sys
 from math import ceil
 
+from intelhex import IntelHex
+from helpers.Crypt import Crypt, PAGE_SIZE
+from helpers.FirmwareFile import FirmwareFile
+
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
-FRAME_SIZE = 512
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -32,28 +29,48 @@ if __name__ == '__main__':
                         required=True)
     args = parser.parse_args()
 
-    # Get binary data from hex file
+    if os.path.isfile(args.outfile):
+        print("'" + args.outfile + "' already exists. Aborting...") 
+	sys.exit(1)
+
+    # Parse Intel hex file.
     firmware = IntelHex(args.infile)
-    sio = StringIO()
-    firmware.tobinfile(sio)
-    hex_data = sio.getvalue()
+    crypt = Crypt(FILE_DIR)
 
-    # Pack metadata
-    metadata = struct.pack('>HHH', int(args.version), 
-                           firmware.maxaddr() + 1, len(args.message) + 1)
+    # Get version, size, and nonce.
+    firmware_size = firmware.maxaddr() + 1
+    version = int(args.version)
+    nonce = int(crypt.getNonce().encode('hex'), 16)
+    
+    # The address is not sent, so we currently only support a single segment
+    if len(firmware.segments()) > 1:
+        raise RuntimeError("ERROR: Hex file contains multiple segments.")
 
-    # Build data bundle
-    bundleData  = metadata.ljust(FRAME_SIZE, '\00')
-    bundleData += (hex_data[:-1]).ljust(FRAME_SIZE, '\00')
-    bundleData += (args.message[:-1]).ljust(FRAME_SIZE, '\00')
+    # starting at address 0.
+    for segment_start, segment_end in firmware.segments():
+        if segment_start != 0:
+            raise RuntimeError("ERROR: Segment in Hex file does not start at address 0.")
 
-    fw_frames = int(ceil(len(bundleData) / float(FRAME_SIZE))) - 1
-    print bundleData
-    outfile = open(args.outfile, 'wb+')
 
-    # Send frames
-    for i in range(fw_frames):
-        start = i * FRAME_SIZE
-        end = (i + 1) * FRAME_SIZE
-        frame = bundleData[start:end]
-        outfile.write(frame)
+    # Add release message to end of hex (null-terminated).
+    firmware.putsz(firmware_size, (args.message + '\0'))
+    fw = firmware.tobinstr()
+
+    numFrames = int(ceil(len(fw) / float(PAGE_SIZE)))
+    fw_file = FirmwareFile(args.outfile)
+
+    size = 0
+    for i in range(numFrames):
+        start = i * PAGE_SIZE
+        end = (i + 1) * PAGE_SIZE
+        encPage, iv = crypt.encode(fw[start : end])
+        fw_file.writePage(encPage, iv)
+        size += len(encPage)
+
+    # Pack and encrypt header
+    header = struct.pack(">IHH", nonce, version, firmware_size)
+    enc_header, header_iv = crypt.encode(header)
+
+    fw_file.writeMetadata(enc_header, version, size, header_iv)
+
+

@@ -22,84 +22,14 @@ import argparse
 import serial
 import struct
 import sys
+import zlib
 import time
-import os
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from math import ceil
+from helpers.FirmwareFile import FirmwareFile
 
 RESP_OK = b'\x00'
-RESP_ER = b'\x01'
-RESP_AB = b'\xff'
-
-FILE_DIR = os.path.abspath(os.path.dirname(__file__))
-FRAME_SIZE = 512
- 
-def readFile(fileName):
-    with open(fileName, 'rb') as file:
-        data = file.read()
-
-    return data
-
-def sendHeader(ser, data, debug):
-    print "Writing header...  "
-
-    #print "Should be R: " + ser.read()#################
-    #print "Should be R: " + ser.read()#################
-
-    frame = data[0 : FRAME_SIZE]
-    #print "Should be S: " + ser.read()#################
-    ser.write(frame)
-    #print "Should be E: " + ser.read()#################
-
-    # Check valid decryption
-    resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request decrypt: " + resp)
-
-    # Check version pass
-    resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader rejected request version: " + resp)
-
-    if debug:
-        print "Header accepted!"
-        
-    #print "Body size: " + ser.read(2).encode('hex')
-
-
-def sendFrame(ser, data, debug):
-    frame = data[(i + 1) * FRAME_SIZE : (i + 2) * FRAME_SIZE].ljust(FRAME_SIZE, '\00')
-
-    if debug:
-        print "Writing frame {} ({} bytes)...".format(i, len(frame))
-
-    #print "Should be R: " + ser.read()#################
-
-    resp = RESP_ER
-    while resp != RESP_OK:
-        #print "Should be S: " + ser.read()#################
-        ser.write(frame)  # Write the frame...
-        #print "Should be E: " + ser.read()#################
-
-        if debug:
-            print(frame).encode('hex')
-
-        resp = ser.read()  # Wait for an OK from the bootloader
-    
-        if debug:
-            print "Response: {}".format(ord(resp))
-
-        time.sleep(0.1)
-
-        if resp == RESP_OK:
-            continue
-        elif resp == RESP_AB:
-            raise RuntimeError("\nERROR: Bootloader responded with {}".format(repr(resp)))
-        else:
-            print("\tRetrying...")
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -112,30 +42,70 @@ if __name__ == '__main__':
                         action='store_true')
     args = parser.parse_args()
 
-    # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2) 
+    ser = serial.Serial(args.port, baudrate=9600, timeout=3)
 
-    # Open firmware file.
+    firmware = FirmwareFile(args.firmware)
+    fw_Metadata = firmware.getMetadata()
+    # Open our firmware file.
     print('Opening firmware file...')
-    data = readFile(args.firmware)
+    print('Version: {}'.format(fw_Metadata['version']))
+    print('Size: {} bytes'.format(fw_Metadata['size']))
+
+    # Send header to the bootloader
+    str_fmt = '>H16s{}s'.format(len(fw_Metadata['header']))
+    metadata = struct.pack(str_fmt, 16 + len(fw_Metadata['header']), fw_Metadata['iv'], fw_Metadata['header'])
 
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
 
-    # Send header
-    sendHeader(ser, data, args.debug)
+    if args.debug:
+        print(fw_Metadata['iv'].encode('hex'))
+        print(metadata.encode('hex'))
 
-    numFrames = int(ceil(len(data) / float(FRAME_SIZE))) - 1
-    if numFrames == 1:
-        print "Writing 1 frame..."
-    else:
-        print "Writing " + str(numFrames) + " frames (" + str(len(data)) + "bytes)..."
+    ser.write(metadata)
 
-    # Send frames
-    for i in range(numFrames):
-        sendFrame(ser, data, args.debug)
+    #print "Header frame: " + ser.read(16).encode('hex')
+    #print "Header key: " + ser.read(16).encode('hex')
+    #print "Header decrypted: " + ser.read(16).encode('hex')
+
+    # Wait for an OK from the bootloader.
+    resp1 = ser.read()
+    resp2 = ser.read()
+    if resp1 != RESP_OK or resp2 != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp2)))
+
+    count = 1
+    for page in firmware:
+        if args.debug:
+            print("Writing frame {} ({} bytes)...".format(count, len(page['msg'])))
+        count += 1
+
+        frame_fmt = '>H{}s{}s'.format(len(page['iv']), len(page['msg']))
+        frame = struct.pack(frame_fmt, 16 + len(page['msg']), page['iv'], page['msg'])
+
+        ser.write(frame)  # Write the frame...
+
+        if args.debug:
+            print(page['msg'].encode('hex'))
+
+        #print "Body frame: " + ser.read(16).encode('hex')
+        #print "Body key: " + ser.read(16).encode('hex')
+        #print "Body decrypted: " + ser.read(16).encode('hex')
+        resp = ser.read()  # Wait for an OK from the bootloader
+
+        time.sleep(0.1)
+
+        if resp != RESP_OK:
+            raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+
+        if args.debug:
+            print("Resp: {}".format(ord(resp)))
 
     print("Done writing firmware.")
+
+    # Send a zero length payload to tell the bootlader to finish writing
+    # it's page.
+    ser.write(struct.pack('>H', 0x0000))
 
