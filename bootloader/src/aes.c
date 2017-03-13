@@ -1,4 +1,6 @@
 /*
+From Tiny AES 128: https://github.com/kokke/tiny-AES128-C
+
 This is an implementation of the AES128 algorithm, specifically ECB and CBC mode.
 The implementation is verified against the test vectors in:
   National Institute of Standards and Technology Special Publication 800-38A 2001 ED

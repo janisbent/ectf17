@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-
+// From Tiny AES 128: https://github.com/kokke/tiny-AES128-C
 // #define the macros below to 1/0 to enable/disable the mode of operation.
 //
 // CBC enables AES128 encryption in CBC-mode of operation and handles 0-padding.
