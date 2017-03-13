@@ -36,11 +36,12 @@ class FirmwareFile:
 		with ZipFile(self.firmwareFileName, 'r') as zf:
 			return len(zf.namelist())
 
-	def getMetadata():
+	def getMetadata(self):
 		with ZipFile(self.firmwareFileName, 'r') as zf:
 			metadata = zf.read(self.METADATA_FILENAME)
 		
 		metadata = json.loads(metadata, encoding="ascii")	
+                print metadata
 		metadata['header'] = metadata['header'].decode('hex')
 		metadata['iv'] = metadata['iv'].decode('hex')
 		return metadata

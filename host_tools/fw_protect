@@ -62,7 +62,7 @@ if __name__ == '__main__':
     header = struct.pack(">IHH", nonce, version, firmware_size)
     enc_header, iv = crypt.encode(header)
 
-    fw_file.writeMetadata(enc_header.encode('hex'), version, firmware_size, iv)
+    fw_file.writeMetadata(enc_header, version, firmware_size, iv)
 
     for i in range(numFrames):
         start = i * PAGE_SIZE

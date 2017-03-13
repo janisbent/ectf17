@@ -28,7 +28,7 @@ import time
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from helper.FirmwareFile import FirmwareFile
+from helpers.FirmwareFile import FirmwareFile
 
 RESP_OK = b'\x00'
 
@@ -50,16 +50,19 @@ if __name__ == '__main__':
     fw_Metadata = firmware.getMetadata()
     # Open our firmware file.
     print('Opening firmware file...')
-    print('Version: {}'.format(fw_Metadata.version))
-    print('Size: {} bytes'.format(fw_Metadata.size))
+    print('Version: {}'.format(fw_Metadata['version']))
+    print('Size: {} bytes'.format(fw_Metadata['size']))
 
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
 
+    str_fmt = '>H16s{}s'.format(len(fw_Metadata['header']))
+
     # Send header to the bootloader
-    metadata = struct.pack('>H16s', 16, fw_Metadata.header)
+    metadata = struct.pack(str_fmt, 16 + len(fw_Metadata['header']), fw_Metadata['iv'], fw_Metadata['header'])
     if args.debug:
+        print(fw_Metadata['iv'].encode('hex'))
         print(metadata.encode('hex'))
     ser.write(metadata)
 
@@ -85,7 +88,7 @@ if __name__ == '__main__':
         ser.write(page)  # Write the frame...
 
         if args.debug:
-            print(page.encode('hex'))
+            print(page['msg'].encode('hex'))
 
         #print "Body frame: " + ser.read(16).encode('hex')
         #print "Body key: " + ser.read(16).encode('hex')
