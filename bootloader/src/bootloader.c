@@ -98,7 +98,7 @@ int main(void)
 void boot_firmware(void)
 {
     // Start the Watchdog Timer.
-    wdt_enable(WDTO_2S);
+    wdt_enable(WDTO_500MS);
 
     // Write out the release message.
     uint8_t cur_byte;
@@ -145,7 +145,7 @@ void readback(void)
 	uint32_t seed;
 
     // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+    wdt_enable(WDTO_500MS);
 
 	// Get key from memory and read header frame
     get_key(key);
@@ -331,7 +331,7 @@ void load_firmware(void)
     uint16_t size = 0;
 
     // Start the Watchdog Timer
-    wdt_enable(WDTO_2S);
+    wdt_enable(WDTO_500MS);
 
     /* Wait for data */
     while(!UART1_data_available())

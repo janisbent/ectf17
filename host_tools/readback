@@ -53,7 +53,6 @@ if __name__ == '__main__':
 
     crypt = Crypt(FILE_DIR)
     request = construct_request(crypt, int(args.address), num_bytes)
-    print request.encode('hex')
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     ser = serial.Serial(args.port, baudrate=9600, timeout=20)
