@@ -68,4 +68,4 @@ if __name__ == '__main__':
     write_fuse_file('lfuse', 0xFF)
     write_fuse_file('hfuse', 0xD8)
     write_fuse_file('efuse', 0xFC)
-
+    write_fuse_file('lock',  0xC0)
