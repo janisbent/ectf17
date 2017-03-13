@@ -109,7 +109,6 @@ void boot_firmware(void)
 
     wdt_reset();
 
-    addr = 0x3da;
     // Write out release message to UART0.
     do
     {
@@ -291,13 +290,15 @@ void load_firmware(void)
     // Get version.
     version  = ((uint16_t)data[4]) << 8;
     version |= ((uint16_t)data[5]);
-    version = 0; ////////////// TODO TODO TODO TODO ///////////////
+    //version = 0; ////////////// TODO TODO TODO TODO ///////////////
 
     // Get size.
     size  = ((uint16_t)data[6]) << 8;
     size |= ((uint16_t)data[7]);
-    size = 1000; ///////////// TODO TODO TODO TODO /////////////
+    //size = 1000; ///////////// TODO TODO TODO TODO /////////////
 
+    //UART0_putchar(size >> 8);
+    //UART0_putchar(size);
 
     // Compare to old version and abort if older (note special case for version
     // 0).

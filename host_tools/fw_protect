@@ -42,6 +42,7 @@ if __name__ == '__main__':
 
     # Pack and encrypt header
     header = struct.pack(">IHH", nonce, version, firmware_size)
+    print format(firmware_size, '#04x')
     enc_header = crypt.encode(header)
 
     # The address is not sent, so we currently only support a single segment
