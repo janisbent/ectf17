@@ -149,7 +149,7 @@ void readback(void)
     nonce |= ((uint32_t)frame[1]) << 16;
     nonce |= ((uint32_t)frame[2]) << 8;
     nonce |= ((uint32_t)frame[3]);
-    nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
+    //nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
 
     if (nonce != NONCE) {
         UART1_putchar(ERROR); // Reject the metadata.
@@ -166,7 +166,7 @@ void readback(void)
     start_addr |= ((uint32_t)frame[6]) << 8;
     start_addr |= ((uint32_t)frame[7]);
 
-    start_addr = 0; ///////// REMOVE TODO TODO TODO TODO //////////////
+    //start_addr = 0; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
 
@@ -176,7 +176,7 @@ void readback(void)
     size |= ((uint32_t)frame[10]) << 8;
     size |= ((uint32_t)frame[11]);
 
-    size = 1024; ///////// REMOVE TODO TODO TODO TODO //////////////
+    //size = 1024; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
     

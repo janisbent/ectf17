@@ -34,7 +34,7 @@ class Crypt:
             nonce = get_random_bytes(4)
             self.sf.setKey(self.sf.NONCE, nonce)
 
-        return 0x01020304 ################## nonce
+        return nonce ################## nonce
 
     def getAESKey(self):
         key = self.sf.getKey(self.sf.AES_KEY)

@@ -18,20 +18,23 @@ import serial
 import struct
 import sys
 import argparse
+import os
+
+from helpers.Crypt import Crypt, FRAME_SIZE
+from math import ceil
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
-def construct_request(start_addr, num_bytes):
-    # Read in secret password from file.
-    SECRET_PASSWORD = ''
-    try:
-        with open('secret_configure_outpt.txt', 'rb') as secret_file:
-            SECRET_PASSWORD = secret_file.read()
-    except:
-        pass # File not found
+FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-    return struct.pack('>HII', 8, start_addr, num_bytes)
+def construct_request(crypt, start_addr, num_bytes):
+
+    nonce = struct.unpack(">I", crypt.getNonce())[0]
+    header = struct.pack('>III', nonce, start_addr, num_bytes)
+    header = crypt.encode(header)
+    
+    return struct.pack('>H16s', 16, header)
 
 
 if __name__ == '__main__':
@@ -46,7 +49,10 @@ if __name__ == '__main__':
     parser.add_argument("--datafile", help="File to write data to (optional).")
     args = parser.parse_args()
 
-    request = construct_request(int(args.address), int(args.num_bytes))
+    num_bytes = int(args.num_bytes)
+
+    crypt = Crypt(FILE_DIR)
+    request = construct_request(crypt, int(args.address), num_bytes)
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     ser = serial.Serial(args.port, baudrate=9600, timeout=20)
@@ -58,20 +64,25 @@ if __name__ == '__main__':
     # Send the request.
     ser.write(request)
     
-    #print "Header frame: " + ser.read(16).encode('hex')
-    #print "Header key: " + ser.read(16).encode('hex')
-    #print "Header decrypted: " + ser.read(16).encode('hex')
-
     resp1 = ser.read()
     resp2 = ser.read()
     if resp1 != RESP_OK or resp2 != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp1)))
 
+    numFrames = int(ceil(num_bytes / float(FRAME_SIZE)))
+
+    data = ser.read(numFrames * FRAME_SIZE)
+
+    dec_data = ''
+    for i in range(numFrames):
+        start = i * FRAME_SIZE
+        end = (i + 1) * FRAME_SIZE
+        dec_data += crypt.decode(data[start : end])
+
     # Read the data and write it to stdout (hex encoded).
-    data = ser.read(int(args.num_bytes))
-    print(data.encode('hex'))
+    print(dec_data[:num_bytes].encode('hex'))
 
     # Write raw data to file (optional).
     if args.datafile:
         with open(args.datafile, 'wb+') as datafile:
-            datafile.write(data)
+            datafile.write(dec_data[:num_bytes])
