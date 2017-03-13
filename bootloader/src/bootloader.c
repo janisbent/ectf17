@@ -439,47 +439,29 @@ ISR(ADC_vect) {
 }
 
 //ANALOG_COMP_vect Analog Comparator
-ISR(ANALOG_COMP_vect) {
-    bad_state();
-}
+ISR(ANALOG_COMP_vect, ISR_ALIASOF(ADC_vect));
 
 //INT0_vect External Interrupt 0
-ISR(INT0_vect) {
-    bad_state();
-}
+ISR(INT0_vect, ISR_ALIASOF(ADC_vect));
 
 //INT1_vect External Interrupt Request 1
-ISR(INT1_vect) {
-    bad_state();
-}
+ISR(INT1_vect, ISR_ALIASOF(ADC_vect));
 
 //INT2_vect External Interrupt Request 2
-ISR(INT2_vect) {
-    bad_state();
-}
+ISR(INT2_vect, ISR_ALIASOF(ADC_vect));
 
 //SPI_STC_vect
-ISR(SPI_STC_vect) {
-    bad_state();
-}
+ISR(SPI_STC_vect, ISR_ALIASOF(ADC_vect));
 
 //SPM_READY_vect Store program mem read
-ISR(SPM_READY_vect) {
-    bad_state();
-}
+ISR(SPM_READY_vect, ISR_ALIASOF(ADC_vect));
 
 //TWI_vect 2-wire serial interface
-ISR(TWI_vect) {
-    bad_state();
-}
+ISR(TWI_vect, ISR_ALIASOF(ADC_vect));
 
 //USART1_RX_vect USART1 Rx complete
-ISR(USART1_RX_vect) {
-    bad_state();
-}
+ISR(USART1_RX_vect, ISR_ALIASOF(ADC_vect));
 
 //WDT_vect watchdog timeout interrupt
-ISR(WDT_vect) {
-    bad_state();
-}
+ISR(WDT_vect, ISR_ALIASOF(ADC_vect));
 
