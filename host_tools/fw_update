@@ -28,40 +28,9 @@ import time
 
 from cStringIO import StringIO
 from intelhex import IntelHex
+from helper.FirmwareFile import FirmwareFile
 
 RESP_OK = b'\x00'
-
-
-class Firmware(object):
-    """
-    Helper for making frames.
-    """
-
-    BLOCK_SIZE = 16
-
-    def __init__(self, fw_filename):
-        with open(fw_filename, 'rb') as fw_file:
-            data = fw_file.read()
-            #data = zlib.decompress(data)
-            data = json.loads(data, encoding="ascii")
-            self.header = data['header'].decode('hex')
-            self.size = data['size'] 
-            self.version = data['version']
-            self.data = data['data'].decode('hex')
-
-
-    def frames(self):
-    # Construct frame from data and length.
-        for address in range(0, len(self.data), self.BLOCK_SIZE):
-            # Frame should be BLOCK_SIZE unless it is the last frame.
-            data = self.data[address:address + self.BLOCK_SIZE]
-            # Get length of frame.
-            length = len(data)
-            frame_fmt = '>H{}s'.format(length)
-
-            # Construct frame.
-            yield struct.pack(frame_fmt, length, data)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -74,22 +43,22 @@ if __name__ == '__main__':
                         action='store_true')
     args = parser.parse_args()
 
-    firmware = Firmware(args.firmware)
-    # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
     ser = serial.Serial(args.port, baudrate=9600, timeout=3)
 
+    firmware = FirmwareFile(args.firmware)
+    fw_Metadata = firmware.getMetadata()
     # Open our firmware file.
     print('Opening firmware file...')
-    print('Version: {}'.format(firmware.version))
-    print('Size: {} bytes (not including release message)'.format(firmware.size))
+    print('Version: {}'.format(fw_Metadata.version))
+    print('Size: {} bytes'.format(fw_Metadata.size))
 
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
 
     # Send header to the bootloader
-    metadata = struct.pack('>H16s', 16, firmware.header)
+    metadata = struct.pack('>H16s', 16, fw_Metadata.header)
     if args.debug:
         print(metadata.encode('hex'))
     ser.write(metadata)
@@ -104,15 +73,19 @@ if __name__ == '__main__':
     if resp1 != RESP_OK or resp2 != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp2)))
 
-
-    for idx, frame in enumerate(firmware.frames()):
+    count = 1
+    for page in firmware:
         if args.debug:
-            print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
+            print("Writing frame {} ({} bytes)...".format(count, len(page['msg'])))
 
-        ser.write(frame)  # Write the frame...
+
+        frame_fmt = '>H{}{}s'.format(len(page['iv'], len(page['msg'])))
+        struct.pack(frame_fmt, length, page['iv'], page['msg'])
+
+        ser.write(page)  # Write the frame...
 
         if args.debug:
-            print(frame.encode('hex'))
+            print(page.encode('hex'))
 
         #print "Body frame: " + ser.read(16).encode('hex')
         #print "Body key: " + ser.read(16).encode('hex')

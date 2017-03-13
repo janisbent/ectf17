@@ -13,7 +13,8 @@ from math import ceil
 
 from cStringIO import StringIO
 from intelhex import IntelHex
-from helpers.Crypt import Crypt, FRAME_SIZE
+from helpers.Crypt import Crypt, PAGE_SIZE
+from helpers.FirmwareFile import FirmwareFile
 
 FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -38,13 +39,8 @@ if __name__ == '__main__':
     # Get version, size, and nonce.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
-    nonce = crypt.getNonce()
-
-    # Pack and encrypt header
-    header = struct.pack(">IHH", nonce, version, firmware_size)
-    print format(firmware_size, '#04x')
-    enc_header = crypt.encode(header)
-
+    nonce = int(crypt.getNonce().encode('hex'), 16)
+    
     # The address is not sent, so we currently only support a single segment
     if len(firmware.segments()) > 1:
         raise RuntimeError("ERROR: Hex file contains multiple segments.")
@@ -57,26 +53,21 @@ if __name__ == '__main__':
 
     # Add release message to end of hex (null-terminated).
     firmware.putsz(firmware_size, (args.message + '\0'))
-    fw =  firmware.tobinstr()
+    fw = firmware.tobinstr()
 
-    numFrames = int(ceil(len(fw) / float(FRAME_SIZE)))
-    enc_fw = ''
+    numFrames = int(ceil(len(fw) / float(PAGE_SIZE)))
+    fw_file = FirmwareFile(args.outfile)
+
+    # Pack and encrypt header
+    header = struct.pack(">IHH", nonce, version, firmware_size)
+    enc_header, iv = crypt.encode(header)
+
+    fw_file.writeMetadata(enc_header.encode('hex'), version, firmware_size, iv)
 
     for i in range(numFrames):
-        start = i * FRAME_SIZE
-        end = (i + 1) * FRAME_SIZE
-        enc_fw += crypt.encode(fw[start : end])
+        start = i * PAGE_SIZE
+        end = (i + 1) * PAGE_SIZE
+        encPage, iv = crypt.encode(fw[start : end])
+        fw_file.writePage(encPage, iv)
 
-    # Encode the data as json and write to outfile.
-    data = {
-        'header'   : enc_header.encode('hex'),
-        'version'  : version,
-        'size'     : firmware_size,
-        'data'     : enc_fw.encode('hex')
-    }
-
-    with open(args.outfile, 'wb+') as outfile:
-        data = json.dumps(data, encoding="ascii")
-        #data = zlib.compress(data)
-        outfile.write(data)
 

@@ -13,8 +13,7 @@ FILE_NAME = "secret_build_output.txt"
 class SecretFile:
 
 	AES_KEY = "AES"
-	DSA_KEY = "DSA"
-        NONCE   = "NONCE"
+	NONCE   = "NONCE"
 
 	def __init__(self, directory):
 		self.filePath = os.path.join(directory, FILE_NAME)
@@ -23,18 +22,11 @@ class SecretFile:
 
 	def setKey(self, key, value):
 		if self.__isValidKey(key):
-			if key == self.DSA_KEY:
-				self.keys[key] = value
-			else:
-				self.keys[key] = value.encode("hex")
+			self.keys[key] = value.encode("hex")
 
 	def getKey(self, key):
 		if self.__isValidKey(key) and key in self.keys:
-			value = self.keys[key]
-
-			if key != self.DSA_KEY:
-				value = value.decode("hex")
-
+			value = self.keys[key].decode("hex")
 			return value
 		else:
 			return None
@@ -44,7 +36,7 @@ class SecretFile:
 			file.write(json.dumps(self.keys))
 
 	def __isValidKey(self, key):
-		return key == self.AES_KEY or key == self.DSA_KEY or key == self.NONCE
+		return key == self.AES_KEY or key == self.NONCE
 
 	def __readDataFromFile(self):
 		if os.path.isfile(self.filePath):
