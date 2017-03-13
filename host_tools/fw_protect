@@ -4,14 +4,10 @@ Firmware Bundle-and-Protect Tool
 
 """
 import argparse
-import shutil
 import struct
-import json
-import zlib
 import os
 from math import ceil
 
-from cStringIO import StringIO
 from intelhex import IntelHex
 from helpers.Crypt import Crypt, PAGE_SIZE
 from helpers.FirmwareFile import FirmwareFile
@@ -31,6 +27,10 @@ if __name__ == '__main__':
     parser.add_argument("--message", help="Release message for this firmware.",
                         required=True)
     args = parser.parse_args()
+
+    if os.path.isfile(args.outfile):
+        print("'" + args.outfile + "' already exists. Aborting...") 
+        return
 
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)

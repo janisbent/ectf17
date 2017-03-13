@@ -19,7 +19,6 @@ just a zero
 """
 
 import argparse
-import json
 import serial
 import struct
 import sys
