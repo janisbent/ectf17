@@ -58,16 +58,18 @@ if __name__ == '__main__':
     numFrames = int(ceil(len(fw) / float(PAGE_SIZE)))
     fw_file = FirmwareFile(args.outfile)
 
-    # Pack and encrypt header
-    header = struct.pack(">IHH", nonce, version, firmware_size)
-    enc_header, iv = crypt.encode(header)
-
-    fw_file.writeMetadata(enc_header, version, firmware_size, iv)
-
+    size = 0
     for i in range(numFrames):
         start = i * PAGE_SIZE
         end = (i + 1) * PAGE_SIZE
         encPage, iv = crypt.encode(fw[start : end])
         fw_file.writePage(encPage, iv)
+        size += len(encPage)
+
+    # Pack and encrypt header
+    header = struct.pack(">IHH", nonce, version, firmware_size)
+    enc_header, header_iv = crypt.encode(header)
+
+    fw_file.writeMetadata(enc_header, version, size, header_iv)
 
 

@@ -38,7 +38,7 @@ class Crypt:
     def encode(self, msg):
         key = self.getAESKey()
         cipher = AES.new(key, AES.MODE_CBC)
-        msg = self.randomPadToSize(msg)
+        msg = msg
         return (cipher.encrypt(msg), cipher.iv)
 
     def decode(self, msg, iv):
