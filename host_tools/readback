@@ -20,7 +20,7 @@ import sys
 import argparse
 import os
 
-from helpers.Crypt import Crypt, FRAME_SIZE
+from helpers.Crypt import Crypt, PAGE_SIZE
 from math import ceil
 
 RESP_OK = b'\x00'
@@ -31,11 +31,11 @@ FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 def construct_request(crypt, start_addr, num_bytes):
 
     nonce = struct.unpack(">I", crypt.getNonce())[0]
-    header = struct.pack('>III', nonce, start_addr, num_bytes)
-    header = crypt.encode(header)
+    seed = crypt.getRandomBytes(4)
+    header = struct.pack('>IIII', nonce, start_addr, num_bytes, seed)
+    header_enc, iv = crypt.encode(header)
     
-    return struct.pack('>H16s', 16, header)
-
+    return struct.pack('>H16s16s', len(header_enc) + 16, iv, header)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
@@ -69,15 +69,17 @@ if __name__ == '__main__':
     if resp1 != RESP_OK or resp2 != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp1)))
 
-    numFrames = int(ceil(num_bytes / float(FRAME_SIZE)))
+    numFrames = int(ceil(num_bytes / float(PAGE_SIZE)))
 
-    data = ser.read(numFrames * FRAME_SIZE)
 
     dec_data = ''
     for i in range(numFrames):
-        start = i * FRAME_SIZE
-        end = (i + 1) * FRAME_SIZE
-        dec_data += crypt.decode(data[start : end])
+        data = ser.read(16 + PAGE_SIZE)
+        iv = data[0:15]
+        data = data[16:]
+
+        dec_data += crypt.decode(data, iv)
+
 
     # Read the data and write it to stdout (hex encoded).
     print(dec_data[:num_bytes].encode('hex'))
