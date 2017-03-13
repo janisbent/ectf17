@@ -67,10 +67,8 @@ static uint8_t RoundKey[176];
 // The Key input to the AES Program
 static const uint8_t* Key;
 
-#if defined(CBC) && CBC
-  // Initial Vector used only for CBC mode
-  static uint8_t* Iv;
-#endif
+// Initial Vector used only for CBC mode
+static uint8_t* Iv;
 
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
 // The numbers below can be computed dynamically trading ROM for RAM - 
@@ -457,10 +455,6 @@ void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* outpu
   BlockCopy(output, input);
   state = (state_t*)output;
 
-
-  //UART1_putchar(0xcc);
-  //UART1_putchar(0xcc);
-  //UART1_putchar(0xcc);
   for (int i = 0; i < 256; i++) {
     sbox[i] = eeprom_read_byte(&(Sbox[i]));
     rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
@@ -468,9 +462,6 @@ void AES128_ECB_encrypt(const uint8_t* input, const uint8_t* key, uint8_t* outpu
         Rcon[i] = eeprom_read_byte(&(rcon[i]));
     }
   }
-  //UART1_putchar(0xdd);
-  //UART1_putchar(0xdd);
-  //UART1_putchar(0xdd);
 
   Key = key;
   KeyExpansion();
@@ -502,3 +493,108 @@ void AES128_ECB_decrypt(const uint8_t* input, const uint8_t* key, uint8_t *outpu
 
 
 
+static void XorWithIv(uint8_t* buf)
+{
+  uint8_t i;
+  for(i = 0; i < KEYLEN; ++i)
+  {
+    buf[i] ^= Iv[i];
+  }
+}
+
+void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+  uintptr_t i;
+  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
+
+  for (int i = 0; i < 256; i++) {
+    sbox[i] = eeprom_read_byte(&(Sbox[i]));
+    rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
+    if (i != 255) {
+        Rcon[i] = eeprom_read_byte(&(rcon[i]));
+    }
+  }
+
+  BlockCopy(output, input);
+  state = (state_t*)output;
+
+  // Skip the key expansion if key is passed as 0
+  if(0 != key)
+  {
+    Key = key;
+    KeyExpansion();
+  }
+
+  if(iv != 0)
+  {
+    Iv = (uint8_t*)iv;
+  }
+
+  for(i = 0; i < length; i += KEYLEN)
+  {
+    XorWithIv(input);
+    BlockCopy(output, input);
+    state = (state_t*)output;
+    Cipher();
+    Iv = output;
+    input += KEYLEN;
+    output += KEYLEN;
+  }
+
+  if(remainders)
+  {
+    BlockCopy(output, input);
+    memset(output + remainders, 0, KEYLEN - remainders); /* add 0-padding */
+    state = (state_t*)output;
+    Cipher();
+  }
+}
+
+void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+  uintptr_t i;
+  uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
+  
+  for (int i = 0; i < 256; i++) {
+    sbox[i] = eeprom_read_byte(&(Sbox[i]));
+    rsbox[i] = eeprom_read_byte(&(Rsbox[i]));
+    if (i != 255) {
+        Rcon[i] = eeprom_read_byte(&(rcon[i]));
+    }
+  }
+
+  BlockCopy(output, input);
+  state = (state_t*)output;
+
+  // Skip the key expansion if key is passed as 0
+  if(0 != key)
+  {
+    Key = key;
+    KeyExpansion();
+  }
+
+  // If iv is passed as 0, we continue to encrypt without re-setting the Iv
+  if(iv != 0)
+  {
+    Iv = (uint8_t*)iv;
+  }
+
+  for(i = 0; i < length; i += KEYLEN)
+  {
+    BlockCopy(output, input);
+    state = (state_t*)output;
+    InvCipher();
+    XorWithIv(output);
+    Iv = input;
+    input += KEYLEN;
+    output += KEYLEN;
+  }
+
+  if(remainders)
+  {
+    BlockCopy(output, input);
+    memset(output+remainders, 0, KEYLEN - remainders); /* add 0-padding */
+    state = (state_t*)output;
+    InvCipher();
+  }
+}

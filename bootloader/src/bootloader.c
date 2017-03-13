@@ -29,6 +29,7 @@
  */
 
 #include <avr/io.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <util/delay.h>
@@ -44,15 +45,16 @@
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
-#define FRAME_SIZE 16
+#define IV_SIZE 16
 
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
-int read_frame(unsigned char *data, int data_index, unsigned char *key);
+void read_frame(unsigned char *data, unsigned char *key);
 void compare_nonces(unsigned char *data);
 void get_key(unsigned char *key);
+void generate_iv(uint8_t *iv, uint32_t seed, bool seed_rng);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
@@ -133,18 +135,20 @@ void boot_firmware(void)
 
 void readback(void)
 {
-    uint8_t frame[FRAME_SIZE];
-    uint8_t key[FRAME_SIZE];
-    uint8_t output[FRAME_SIZE];
+    uint8_t frame[SPM_PAGESIZE];
+    uint8_t output[SPM_PAGESIZE];
+    uint8_t key[IV_SIZE];
+    uint8_t iv[IV_SIZE];
     uint32_t addr;
     uint32_t start_addr;
     uint32_t size;
+	uint32_t seed;
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
     get_key(key);
-    read_frame(frame, 0, key);
+    read_frame(frame, key);
 
     compare_nonces(frame);
 
@@ -153,6 +157,7 @@ void readback(void)
     start_addr |= ((uint32_t)frame[5]) << 16;
     start_addr |= ((uint32_t)frame[6]) << 8;
     start_addr |= ((uint32_t)frame[7]);
+    addr = start_addr;
 
     wdt_reset();
 
@@ -163,21 +168,29 @@ void readback(void)
     size |= ((uint32_t)frame[11]);
 
     wdt_reset();
-    
-    addr = start_addr;
+
+    // Read in seed (4 bytes).
+    seed  = ((uint32_t)frame[12]) << 24;
+    seed |= ((uint32_t)frame[13]) << 16;
+    seed |= ((uint32_t)frame[14]) << 8;
+    seed |= ((uint32_t)frame[15]);
+
+	generate_iv(iv, seed, true);
 
     // Read the memory out to UART1.
     while (addr < start_addr + size)
     {
-        for (int i = 0; i < FRAME_SIZE; i++) {
+        for (int i = 0; i < SPM_PAGESIZE; i++) {
             frame[i] = pgm_read_byte_far(addr++);
             wdt_reset();
         }
 
-        AES128_ECB_encrypt(frame, key, output);
+		generate_iv(iv, 0, false);
+
+        AES128_CBC_encrypt_buffer(output, frame, SPM_PAGESIZE, key, iv);
 
         // Write the byte to UART1.
-        for (int i = 0; i < FRAME_SIZE; i++) {
+        for (int i = 0; i < SPM_PAGESIZE; i++) {
             UART1_putchar(output[i]);
             wdt_reset();
         }
@@ -209,48 +222,60 @@ void compare_nonces(unsigned char *data)
     }
 }
 
+void generate_iv(uint8_t *iv, uint32_t seed, bool seed_rng)
+{
+	if (seed_rng) {
+		srand(seed);
+	}
+
+	for (int i = 0; i < IV_SIZE; i++) {
+		iv[i] = (uint8_t)rand();
+	}
+}
+
 void get_key(unsigned char *key)
 {
-    for (int i = 0; i < FRAME_SIZE; i++) {
+    for (int i = 0; i < IV_SIZE; i++) {
         key[i] = eeprom_read_byte(&KEY[i]);
     }
 }
 
-int read_frame(unsigned char *data, int data_index, unsigned char *key)
+void read_frame(unsigned char *data, unsigned char *key)
 {
     int frame_length = 0;
     unsigned char rcv = 0;
-    unsigned char frame[FRAME_SIZE];
-    unsigned char output[FRAME_SIZE];
+	unsigned char iv[IV_SIZE];
+    unsigned char page[SPM_PAGESIZE];
+    unsigned char output[SPM_PAGESIZE];
 
     // Get two bytes for the length.
     rcv = UART1_getchar();
     frame_length = (int)rcv << 8;
     rcv = UART1_getchar();
     frame_length += (int)rcv;
+	frame_length -= IV_SIZE;
 
     wdt_reset();
     
-    for (int i = 0; i < FRAME_SIZE; i++) {
-        frame[i] = 0;
-    }
+	for (int i = 0; i < IV_SIZE; i++) {
+		iv[i] = UART1_getchar();
+	}
 
     // Get the number of bytes specified
     for (int i = 0; i < frame_length; ++i) {
         wdt_reset();
-        frame[i] = UART1_getchar();
-    } //for
+        page[i] = UART1_getchar();
+    }
 
     // Decrypt frame
-    AES128_ECB_decrypt(frame, key, output);
+    AES128_CBC_decrypt_buffer(output, page, frame_length, key, iv);
     
     for(int i = 0; i < frame_length; ++i){
         wdt_reset();
-        data[data_index + i] = output[i];
-    } //for
-    UART1_putchar(OK); // Acknowledge the frame.
+        data[i] = output[i];
+    }
 
-    return frame_length;
+    UART1_putchar(OK); // Acknowledge the frame.
 }
 
 /***********************************************
@@ -260,13 +285,10 @@ int read_frame(unsigned char *data, int data_index, unsigned char *key)
 void load_firmware(void)
 {
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
-    unsigned char key[FRAME_SIZE];
-    unsigned int data_index = 0;
-    unsigned int data_index_old = 0;
+    unsigned char key[IV_SIZE];
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
-    bool last_frame = false;
 
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
@@ -278,7 +300,7 @@ void load_firmware(void)
     }
 
     get_key(key);
-    read_frame(data, 0, key);
+    read_frame(data, key);
 
     compare_nonces(data);
 
@@ -318,26 +340,11 @@ void load_firmware(void)
     {
         wdt_reset();
 
-        data_index_old = data_index;
-        data_index += read_frame(data, data_index, key);
+        read_frame(data, key);
 
-        // If we filed our page buffer, program it
-        if((data_index == SPM_PAGESIZE || data_index_old == data_index) && !last_frame)
-        {
-            wdt_reset();
-            if (data_index_old == data_index) {
-                last_frame = true;
-            }
-
-            wdt_reset();
-            program_flash(page, data);
-            page += SPM_PAGESIZE;
-            data_index = 0;
-
-            wdt_reset();
-        } // if
-
-
+		wdt_reset();
+		program_flash(page, data);
+		page += SPM_PAGESIZE;
     } // while(1)
 }
 
