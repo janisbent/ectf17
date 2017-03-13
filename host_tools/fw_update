@@ -104,6 +104,7 @@ if __name__ == '__main__':
     if resp1 != RESP_OK or resp2 != RESP_OK:
         raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp2)))
 
+
     for idx, frame in enumerate(firmware.frames()):
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(idx, len(frame)))

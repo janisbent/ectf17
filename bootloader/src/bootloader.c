@@ -40,6 +40,7 @@
 
 #include "uart.h"
 #include "aes.h"
+#include "keys.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -50,10 +51,10 @@ void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
 int read_frame(unsigned char *data, int data_index);
+void compare_nonces(unsigned char *data);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
-
 
 int main(void)
 {
@@ -135,38 +136,21 @@ void readback(void)
     uint8_t key[16];
     uint8_t output[16];
     uint32_t addr;
-    uint32_t nonce;
-    uint32_t NONCE = 0x01020304;//////////////// TODO TODO TODO TODO //////////
     uint32_t start_addr;
     uint32_t size;
+
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
     read_frame(frame, 0);
 
-    // Read in start address (4 bytes).
-    nonce  = ((uint32_t)frame[0]) << 24;
-    nonce |= ((uint32_t)frame[1]) << 16;
-    nonce |= ((uint32_t)frame[2]) << 8;
-    nonce |= ((uint32_t)frame[3]);
-    //nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
-
-    if (nonce != NONCE) {
-        UART1_putchar(ERROR); // Reject the metadata.
-        while(1) {
-            __asm__ __volatile__("");
-        }
-    } else {
-        UART1_putchar(OK);
-    }
+    compare_nonces(frame);
 
     // Read in start address (4 bytes).
     start_addr  = ((uint32_t)frame[4]) << 24;
     start_addr |= ((uint32_t)frame[5]) << 16;
     start_addr |= ((uint32_t)frame[6]) << 8;
     start_addr |= ((uint32_t)frame[7]);
-
-    //start_addr = 0; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
 
@@ -175,8 +159,6 @@ void readback(void)
     size |= ((uint32_t)frame[9]) << 16;
     size |= ((uint32_t)frame[10]) << 8;
     size |= ((uint32_t)frame[11]);
-
-    //size = 1024; ///////// REMOVE TODO TODO TODO TODO //////////////
 
     wdt_reset();
     
@@ -192,7 +174,6 @@ void readback(void)
         }
 
         AES128_ECB_encrypt(frame, key, output);
-        // ENCRYPT HERE
 
         // Write the byte to UART1.
         for (int i = 0; i < FRAME_SIZE; i++) {
@@ -202,6 +183,29 @@ void readback(void)
     }
 
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
+}
+
+void compare_nonces(unsigned char *data)
+{
+    uint32_t nonce = 0;
+    uint32_t nonce_val = 0;
+
+    // Get nonces
+    for (int i = 0; i < 4; i++) {
+        nonce |= ((uint32_t)data[i]) << (24 - i * 8);
+        nonce_val <<= 8;
+        nonce_val |= (uint32_t)eeprom_read_byte(&NONCE[i]);
+    }
+
+    // Compare nonces
+    if (nonce != nonce_val) {
+        UART1_putchar(ERROR); // Reject the metadata.
+        while(1) {
+            __asm__ __volatile__("");
+        }
+    } else {
+        UART1_putchar(OK);
+    }
 }
 
 int read_frame(unsigned char *data, int data_index)
@@ -256,8 +260,6 @@ void load_firmware(void)
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
-    uint32_t nonce = 0;
-    uint32_t NONCE = 0x01020304;/////////////////// TODO TODO TODO TODO ///////////
     bool last_frame = false;
 
     // Start the Watchdog Timer
@@ -271,34 +273,15 @@ void load_firmware(void)
 
     read_frame(data, 0);
 
-    // Get nonce
-    nonce  = ((uint32_t)data[0]) << 24;
-    nonce |= ((uint32_t)data[1]) << 16;
-    nonce |= ((uint32_t)data[2]) << 8;
-    nonce |= ((uint32_t)data[3]);
-    //nonce = 0x01020304; //////////////// TODO TODO TODO TODO /////////////
-
-    if (nonce != NONCE) {
-        UART1_putchar(ERROR); // Reject the metadata.
-        while(1) {
-            __asm__ __volatile__("");
-        }
-    } else {
-        UART1_putchar(OK);
-    }
+    compare_nonces(data);
 
     // Get version.
     version  = ((uint16_t)data[4]) << 8;
     version |= ((uint16_t)data[5]);
-    //version = 0; ////////////// TODO TODO TODO TODO ///////////////
 
     // Get size.
     size  = ((uint16_t)data[6]) << 8;
     size |= ((uint16_t)data[7]);
-    //size = 1000; ///////////// TODO TODO TODO TODO /////////////
-
-    //UART0_putchar(size >> 8);
-    //UART0_putchar(size);
 
     // Compare to old version and abort if older (note special case for version
     // 0).
