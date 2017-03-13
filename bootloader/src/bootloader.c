@@ -50,8 +50,9 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
-int read_frame(unsigned char *data, int data_index);
+int read_frame(unsigned char *data, int data_index, unsigned char *key);
 void compare_nonces(unsigned char *data);
+void get_key(unsigned char *key);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
@@ -132,9 +133,9 @@ void boot_firmware(void)
 
 void readback(void)
 {
-    uint8_t frame[16];
-    uint8_t key[16];
-    uint8_t output[16];
+    uint8_t frame[FRAME_SIZE];
+    uint8_t key[FRAME_SIZE];
+    uint8_t output[FRAME_SIZE];
     uint32_t addr;
     uint32_t start_addr;
     uint32_t size;
@@ -142,7 +143,8 @@ void readback(void)
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
-    read_frame(frame, 0);
+    get_key(key);
+    read_frame(frame, 0, key);
 
     compare_nonces(frame);
 
@@ -169,7 +171,6 @@ void readback(void)
     {
         for (int i = 0; i < FRAME_SIZE; i++) {
             frame[i] = pgm_read_byte_far(addr++);
-            key[i] = (uint8_t)i;
             wdt_reset();
         }
 
@@ -208,13 +209,19 @@ void compare_nonces(unsigned char *data)
     }
 }
 
-int read_frame(unsigned char *data, int data_index)
+void get_key(unsigned char *key)
+{
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        key[i] = eeprom_read_byte(&KEY[i]);
+    }
+}
+
+int read_frame(unsigned char *data, int data_index, unsigned char *key)
 {
     int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char frame[FRAME_SIZE];
     unsigned char output[FRAME_SIZE];
-    unsigned char key[FRAME_SIZE];
 
     // Get two bytes for the length.
     rcv = UART1_getchar();
@@ -229,11 +236,9 @@ int read_frame(unsigned char *data, int data_index)
     }
 
     // Get the number of bytes specified
-    for(int i = 0; i < frame_length; ++i){
+    for (int i = 0; i < frame_length; ++i) {
         wdt_reset();
         frame[i] = UART1_getchar();
-        output[i] = frame[i];
-        key[i] = (unsigned char)i;
     } //for
 
     // Decrypt frame
@@ -255,6 +260,7 @@ int read_frame(unsigned char *data, int data_index)
 void load_firmware(void)
 {
     unsigned char data[SPM_PAGESIZE]; // SPM_PAGESIZE is the size of a page.
+    unsigned char key[FRAME_SIZE];
     unsigned int data_index = 0;
     unsigned int data_index_old = 0;
     unsigned int page = 0;
@@ -271,7 +277,8 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
-    read_frame(data, 0);
+    get_key(key);
+    read_frame(data, 0, key);
 
     compare_nonces(data);
 
@@ -312,7 +319,7 @@ void load_firmware(void)
         wdt_reset();
 
         data_index_old = data_index;
-        data_index += read_frame(data, data_index);
+        data_index += read_frame(data, data_index, key);
 
         // If we filed our page buffer, program it
         if((data_index == SPM_PAGESIZE || data_index_old == data_index) && !last_frame)
