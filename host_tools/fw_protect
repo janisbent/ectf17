@@ -6,6 +6,7 @@ Firmware Bundle-and-Protect Tool
 import argparse
 import struct
 import os
+import sys
 from math import ceil
 
 from intelhex import IntelHex
@@ -30,7 +31,7 @@ if __name__ == '__main__':
 
     if os.path.isfile(args.outfile):
         print("'" + args.outfile + "' already exists. Aborting...") 
-        return
+	sys.exit(1)
 
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)

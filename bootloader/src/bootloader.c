@@ -420,3 +420,66 @@ void program_flash(uint32_t page_address, unsigned char *data)
     boot_page_write_safe(page_address);
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
+
+//
+// Interrupts
+//
+
+void bad_state()
+{
+    while(1)
+    {
+        __asm__ __volatile__("");
+    }
+}
+
+//ADC_vect ADC Conversion complete
+ISR(ADC_vect) {
+    bad_state();
+}
+
+//ANALOG_COMP_vect Analog Comparator
+ISR(ANALOG_COMP_vect) {
+    bad_state();
+}
+
+//INT0_vect External Interrupt 0
+ISR(INT0_vect) {
+    bad_state();
+}
+
+//INT1_vect External Interrupt Request 1
+ISR(INT1_vect) {
+    bad_state();
+}
+
+//INT2_vect External Interrupt Request 2
+ISR(INT2_vect) {
+    bad_state();
+}
+
+//SPI_STC_vect
+ISR(SPI_STC_vect) {
+    bad_state();
+}
+
+//SPM_READY_vect Store program mem read
+ISR(SPM_READY_vect) {
+    bad_state();
+}
+
+//TWI_vect 2-wire serial interface
+ISR(TWI_vect) {
+    bad_state();
+}
+
+//USART1_RX_vect USART1 Rx complete
+ISR(USART1_RX_vect) {
+    bad_state();
+}
+
+//WDT_vect watchdog timeout interrupt
+ISR(WDT_vect) {
+    bad_state();
+}
+
