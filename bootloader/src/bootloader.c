@@ -193,6 +193,11 @@ void readback(void)
 		// Encrypt page with CBC
         AES128_CBC_encrypt_buffer(output, frame, SPM_PAGESIZE, key, iv);
 
+		// Write IV
+		for (int i = 0; i < IV_SIZE; i++) {
+			UART1_putchar(iv[i]);
+		}
+
 		// Generate IV for next page
 		generate_iv(iv, 0, false);
 
