@@ -9,12 +9,12 @@ class FirmwareFile:
 
 	def __init__(self, firmwareFileName):
 		self.firmwareFileName = firmwareFileName
-		self.curFileName = 'a'
+		self.curFileName = ['a']
 
 	def __iter__(self):
 		with ZipFile(self.firmwareFileName, 'r') as zf:
 			fileList = zf.namelist()
-			fileList.sort()
+			fileList.sort(key=lambda item: (len(item), item))
 
 			for filename in fileList:
 				if filename != self.METADATA_FILENAME:
@@ -61,9 +61,9 @@ class FirmwareFile:
 			'msg' : msg.encode('hex'),
 			'iv'  : iv.encode('hex')
 		}
-
-		self.__writeData(self.curFileName, data)
-		self.curFileName = chr(ord(self.curFileName) + 1)
+		filename = ''.join(self.curFileName)
+		self.__writeData(filename, data)
+		self.__incrementFilename()
 
 
 	def __writeData(self, fileName, data):
@@ -71,3 +71,17 @@ class FirmwareFile:
 
 		with ZipFile(self.firmwareFileName, 'a') as zf:
 			zf.writestr(fileName, data)
+
+	def __incrementFilename(self):
+		aCount = 0
+
+		for i in range(len(self.curFileName) - 1, -1, -1):
+			if self.curFileName[i] == 'z':
+				self.curFileName[i] = 'a'
+				aCount += 1
+			else:
+				self.curFileName[i] = chr(ord(self.curFileName[i]) + 1)
+				break
+
+		if aCount == len(self.curFileName):
+			self.curFileName.append('a')
