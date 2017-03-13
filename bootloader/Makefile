@@ -50,40 +50,6 @@ sys_startup.o:
 
 ###################### ADDED FOR ENCRYPTION ###############################
 
-############# ABANDONED DUE TO EXCESS MEMORY CONSUMPTION ##################
-#
-# sha1.o:
-#	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha1.c
-#
-# mp_math.o:
-#	$(CC) $(CFLAGS) $(INCLUDES) -c src/mp_math.c
-#
-# dsa_verify.o:
-#	$(CC) $(CFLAGS) $(INCLUDES) -c src/dsa_verify.c
-#
-# verify.o: sha1.o mp_math.o dsa_verify.o
-#	$(CC) $(CFLAGS) $(INCLUDES) -c src/verify.c
-#
-###########################################################################
-
-hfal-basic.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/hfal-basic.c
-
-bigint.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/bigint.c
-
-dsa_key_blob.o: bigint.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/dsa_key_blob.c
-
-dsa_sign.o: bigint.o hfal-basic.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/dsa_sign.c
-
-dsa_verify.o: bigint.o hfal-basic.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/dsa_verify.c
-
-sha256.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha256.c
-
 aes.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c
 
