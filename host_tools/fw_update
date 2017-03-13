@@ -53,17 +53,18 @@ if __name__ == '__main__':
     print('Version: {}'.format(fw_Metadata['version']))
     print('Size: {} bytes'.format(fw_Metadata['size']))
 
+    # Send header to the bootloader
+    str_fmt = '>H16s{}s'.format(len(fw_Metadata['header']))
+    metadata = struct.pack(str_fmt, 16 + len(fw_Metadata['header']), fw_Metadata['iv'], fw_Metadata['header'])
+
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
 
-    str_fmt = '>H16s{}s'.format(len(fw_Metadata['header']))
-
-    # Send header to the bootloader
-    metadata = struct.pack(str_fmt, 16 + len(fw_Metadata['header']), fw_Metadata['iv'], fw_Metadata['header'])
     if args.debug:
         print(fw_Metadata['iv'].encode('hex'))
         print(metadata.encode('hex'))
+
     ser.write(metadata)
 
     #print "Header frame: " + ser.read(16).encode('hex')
@@ -81,11 +82,10 @@ if __name__ == '__main__':
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(count, len(page['msg'])))
 
+        frame_fmt = '>H{}s{}s'.format(len(page['iv']), len(page['msg']))
+        frame = struct.pack(frame_fmt, 16 + len(page['msg']), page['iv'], page['msg'])
 
-        frame_fmt = '>H{}{}s'.format(len(page['iv'], len(page['msg'])))
-        struct.pack(frame_fmt, length, page['iv'], page['msg'])
-
-        ser.write(page)  # Write the frame...
+        ser.write(frame)  # Write the frame...
 
         if args.debug:
             print(page['msg'].encode('hex'))

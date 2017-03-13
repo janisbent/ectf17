@@ -293,6 +293,14 @@ void read_frame(unsigned char *data, unsigned char *key)
         page[i] = UART1_getchar();
     }
 
+/*
+	for (int i = 0; i < IV_SIZE; i++) {
+		UART1_putchar(iv[i]);
+	}
+	for (int i = 0; i < frame_length; ++i) {
+		UART1_putchar(page[i]);
+	}
+*/
     // Decrypt frame
     AES128_CBC_decrypt_buffer(output, page, frame_length, key, iv);
     

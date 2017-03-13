@@ -38,7 +38,8 @@ class Crypt:
     def encode(self, msg):
         key = self.getAESKey()
         cipher = AES.new(key, AES.MODE_CBC)
-        msg = msg
+        msg = self.randomPadToSize(msg, size=16)
+	print cipher.iv.encode('hex')
         return (cipher.encrypt(msg), cipher.iv)
 
     def decode(self, msg, iv):
