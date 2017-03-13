@@ -147,9 +147,11 @@ void readback(void)
     // Start the Watchdog Timer
     wdt_enable(WDTO_2S);
 
+	// Get key from memory and read header frame
     get_key(key);
     read_frame(frame, key);
 
+	// Check for valid decryption
     compare_nonces(frame);
 
     // Read in start address (4 bytes).
@@ -169,12 +171,15 @@ void readback(void)
 
     wdt_reset();
 
-    // Read in seed (4 bytes).
+    // Read in rng seed (4 bytes).
     seed  = ((uint32_t)frame[12]) << 24;
     seed |= ((uint32_t)frame[13]) << 16;
     seed |= ((uint32_t)frame[14]) << 8;
     seed |= ((uint32_t)frame[15]);
 
+	wdt_reset();
+
+	// Generate the first IV
 	generate_iv(iv, seed, true);
 
     // Read the memory out to UART1.
@@ -185,9 +190,11 @@ void readback(void)
             wdt_reset();
         }
 
-		generate_iv(iv, 0, false);
-
+		// Encrypt page with CBC
         AES128_CBC_encrypt_buffer(output, frame, SPM_PAGESIZE, key, iv);
+
+		// Generate IV for next page
+		generate_iv(iv, 0, false);
 
         // Write the byte to UART1.
         for (int i = 0; i < SPM_PAGESIZE; i++) {
@@ -199,6 +206,10 @@ void readback(void)
     while(1) __asm__ __volatile__(""); // Wait for watchdog timer to reset.
 }
 
+/*
+ * Compares correct nonce against decrypted nonce and resets
+ * if nonces don't match
+ */
 void compare_nonces(unsigned char *data)
 {
     uint32_t nonce = 0;
@@ -218,21 +229,31 @@ void compare_nonces(unsigned char *data)
             __asm__ __volatile__("");
         }
     } else {
-        UART1_putchar(OK);
+        UART1_putchar(OK);	// Accept metadata
     }
 }
 
+/* 
+ * Generate a random IV, seeding the random number generator
+ * the first time around
+ */
 void generate_iv(uint8_t *iv, uint32_t seed, bool seed_rng)
 {
+	// Seed random number generator
 	if (seed_rng) {
 		srand(seed);
 	}
 
+	// Fill iv with random numbers
 	for (int i = 0; i < IV_SIZE; i++) {
+		wdt_reset();
 		iv[i] = (uint8_t)rand();
 	}
 }
 
+/*
+ * Read key from EEPROM
+ */
 void get_key(unsigned char *key)
 {
     for (int i = 0; i < IV_SIZE; i++) {
@@ -240,6 +261,9 @@ void get_key(unsigned char *key)
     }
 }
 
+/* 
+ * Reads a frame of data from UART1 and decrypts it in place
+ */
 void read_frame(unsigned char *data, unsigned char *key)
 {
     int frame_length = 0;
@@ -257,11 +281,13 @@ void read_frame(unsigned char *data, unsigned char *key)
 
     wdt_reset();
     
+	// Read IV for frame
 	for (int i = 0; i < IV_SIZE; i++) {
+		wdt_reset();
 		iv[i] = UART1_getchar();
 	}
 
-    // Get the number of bytes specified
+    // Receive frame
     for (int i = 0; i < frame_length; ++i) {
         wdt_reset();
         page[i] = UART1_getchar();
@@ -270,6 +296,7 @@ void read_frame(unsigned char *data, unsigned char *key)
     // Decrypt frame
     AES128_CBC_decrypt_buffer(output, page, frame_length, key, iv);
     
+	// Copy data to destination buffer
     for(int i = 0; i < frame_length; ++i){
         wdt_reset();
         data[i] = output[i];
@@ -299,9 +326,11 @@ void load_firmware(void)
         __asm__ __volatile__("");
     }
 
+	// Get key from memory and read header frame
     get_key(key);
     read_frame(data, key);
 
+	// Check for proper decryption
     compare_nonces(data);
 
     // Get version.
@@ -345,7 +374,7 @@ void load_firmware(void)
 		wdt_reset();
 		program_flash(page, data);
 		page += SPM_PAGESIZE;
-    } // while(1)
+    }
 }
 
 
