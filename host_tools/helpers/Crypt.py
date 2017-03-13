@@ -46,9 +46,9 @@ class Crypt:
 	print cipher.iv.encode('hex')
         return (cipher.encrypt(msg), cipher.iv)
 
-    def decode(self, msg, iv):
+    def decode(self, msg, iv_val):
         key = self.getAESKey()
-        cipher = AES.new(key, AES.MODE_CBC, iv=iv)
+        cipher = AES.new(key, AES.MODE_CBC, iv=iv_val)
         return cipher.decrypt(msg)
 
     def randomPadToSize(self, msg, size=PAGE_SIZE):
