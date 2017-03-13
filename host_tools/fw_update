@@ -80,6 +80,7 @@ if __name__ == '__main__':
     for page in firmware:
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(count, len(page['msg'])))
+		count += 1
 
         frame_fmt = '>H{}s{}s'.format(len(page['iv']), len(page['msg']))
         frame = struct.pack(frame_fmt, 16 + len(page['msg']), page['iv'], page['msg'])
