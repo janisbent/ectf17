@@ -19,10 +19,14 @@ class Crypt:
     def __del__(self):
 	   self.sf.flush()
 
+    #wrapper for Crypto.Random.get_random_bytes()
+    def getRandomBytes(self, num):
+        return get_random_bytes(num)
+
     def getNonce(self):
         nonce = self.sf.getKey(self.sf.NONCE)
         if nonce is None:
-            nonce = get_random_bytes(4)
+            nonce = self.getRandomBytes(4)
             self.sf.setKey(self.sf.NONCE, nonce)
 
         return nonce
@@ -30,7 +34,7 @@ class Crypt:
     def getAESKey(self):
         key = self.sf.getKey(self.sf.AES_KEY)
         if key is None:
-            key = get_random_bytes(16)
+            key = self.getRandomBytes(16)
             self.sf.setKey(self.sf.AES_KEY, key)
 
         return key
@@ -53,4 +57,4 @@ class Crypt:
         if pad == 0:
             return msg
 
-        return msg + get_random_bytes(size - pad)
+        return msg + self.getRandomBytes(size - pad)
