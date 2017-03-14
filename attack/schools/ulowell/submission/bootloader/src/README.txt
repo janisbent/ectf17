@@ -1,0 +1,1 @@
+All function source code files. Include aes.c, sha1.c uart.c sys_startup.c and bootloader.c.

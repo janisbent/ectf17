@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+"""
+Bootloader Build Tool
+
+This tool is responsible for building the bootloader from source and copying
+the build outputs into the host tools directory for programming.
+"""
+
+import os
+import shutil
+import subprocess
+import intelhex
+
+FILE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+
+def make_bootloader():
+    """
+    Build the bootloader from source.
+
+    Return:
+        True if successful, False otherwise.
+    """
+    # Change into directory containing bootloader.
+    os.chdir('../bootloader')
+
+    # Call make in subprocess to build bootloader.
+    subprocess.call('make clean', shell=True)
+    status = subprocess.call('make')
+
+    # Return True if make returned 0, otherwise return False.
+    return status == 0
+
+
+def copy_artifacts():
+    """
+    Copy bootloader build artifacts into the host tools directory.
+    """
+    # Get directory containing this file (host_tools).
+    dst_dir = FILE_DIR
+
+    # Get directory containing bootloader output (bootloader).
+    src_dir = os.path.join(os.path.dirname(dst_dir), 'bootloader')
+
+    # Copy build artifacts from bootloader directory.
+    shutil.copy(os.path.join(src_dir, 'flash.hex'), dst_dir)
+    shutil.copy(os.path.join(src_dir, 'eeprom.hex'), dst_dir)
+
+
+def write_fuse_file(fuse_name, fuse_value):
+    """
+    Create a hex file with the fuse name containing the fuse value
+
+    :param fuse_name: the name of the hex file
+    :param fuse_value: the value for the given fuse
+    """
+    hex_file = intelhex.IntelHex()
+    hex_file[0] = fuse_value
+
+    with open(os.path.join(FILE_DIR, fuse_name + '.hex'), 'wb+') as outfile:
+        hex_file.tofile(outfile, format='hex')
+
+
+def write_secrets_to_eeprom():
+    """
+    Create a eeprom hex file containing urandom value for the key and the initial
+    random seed
+    """
+    # Create the urandom bytes
+    bytes = '\00'*8+os.urandom(136)
+
+    os.chdir("../host_tools")
+    # Save the key to the configuration file
+    with open("secret_configure_output.txt", "wb") as f:
+        f.write(bytes[40:56])
+
+    # Dump the key and seed to the hex file
+    with open("eeprom.bin", "wb") as f:
+        f.write(bytes)
+    intelhex.bin2hex("eeprom.bin", "eeprom.hex")
+
+if __name__ == '__main__':
+    make_bootloader()
+    copy_artifacts()
+
+    # Note that you must use the below command to upload to the board:
+    # avrdude - P usb -p m1284 - c USBasp - u - U
+    #               flash:w:flash.hex:i - U
+    #               eeprom:w:eeprom.hex:i - U
+    #               lfuse:w:lfuse.hex:i - U
+    #               hfuse:w:hfuse.hex:i - U
+    #               efuse:w:efuse.hex:i - U
+    #               lock:w:lock.hex:i
+    write_fuse_file('lfuse', 0xFF)
+    write_fuse_file('hfuse', 0x98)
+    write_fuse_file('efuse', 0xFC)
+    write_fuse_file('lock',  0x3C)
+
+    # Also, create a hex file for the eeprom containing a urandom for the key
+    # and the initial seed
+    write_secrets_to_eeprom()
