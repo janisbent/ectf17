@@ -38,3 +38,7 @@ tiny*
 2017-*
 
 keys.h
+
+.DS_Store
+
+*.map
