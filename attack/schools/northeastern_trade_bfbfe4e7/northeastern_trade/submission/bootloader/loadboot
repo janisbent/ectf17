@@ -1,0 +1,8 @@
+#!/bin/bash
+
+make clean
+cd ../host_tools/
+./bl_build
+sleep 2
+cd ../bootloader/
+make flash

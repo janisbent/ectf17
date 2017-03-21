@@ -1,0 +1,55 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+# In Windows/MinGW we need to use NUL instead of /dev/null. This does not apply
+# in Cygwin (where 'host_os' below would return as 'cygwin').
+require 'rbconfig'
+is_windows = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw/)
+if is_windows
+  devnull = 'NUL'
+else
+  devnull = '/dev/null'
+end
+
+
+################################################################################
+# Team Dependencies
+################################################################################
+
+# Custom Ubuntu packages installed with apt-get.
+$team_apt_packages = "gcc-avr avr-libc make avrdude avarice gdb-avr"
+
+# Custom Python packages installed with pip.
+$team_pip_packages = "pyserial pycrypto intelhex"
+
+# Custom Python packages installed with pip easy_install.
+$team_easy_install_packages = "hashlib"
+
+
+################################################################################
+# Teeam Provisioning Scripts
+################################################################################
+
+# Configure team-specific settings.
+$configure_team_settings = <<EOT
+# Team-specific provisioning code goes here.
+if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
+    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
+fi
+
+echo "Installing required easy_install packages."
+
+yes | easy_install #{$team_easy_install_packages}
+
+if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
+    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
+fi
+
+EOT
+
+# Configure the machine and installed tools:
+#   git: Configure the system-wide proxy settings and set the user name/email to
+#        the ones for the host machine (if available).
+$configure_team_tools = <<EOT
+# Team-specific tool setup code goes here.
+EOT
+
