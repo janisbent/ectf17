@@ -2,6 +2,8 @@
 """
 Memory Readback Tool
 
+UMASS LOWELL
+
 A frame consists of four sections:
 1. One byte for the length of the password.
 2. The variable-length password.

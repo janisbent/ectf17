@@ -2,6 +2,8 @@
 """
 Bootloader Configuration Tool
 
+UMASS LOWELL
+
 This tool is responsible for configuring the bootloader after it is programmed.
 """
 import argparse

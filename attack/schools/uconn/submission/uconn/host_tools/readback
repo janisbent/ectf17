@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Memory Readback Tool
 The number of bytes you read must be a multiple of 16!
+
+UCONN
 """
 
 import serial

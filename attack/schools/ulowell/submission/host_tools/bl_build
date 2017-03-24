@@ -2,6 +2,8 @@
 """
 Bootloader Build Tool
 
+UMASS LOWELL
+
 This tool is responsible for building the bootloader from source and copying
 the build outputs into the host tools directory for programming.
 """

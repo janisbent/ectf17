@@ -3,17 +3,10 @@
 Firmware Bundle-and-Protect Tool
 
 """
-import os
 import sys
 import argparse
-import shutil
-import struct
 import json
 import zlib
-import hashlib
-import base64
-from Crypto.Cipher import AES
-from cStringIO import StringIO
 from intelhex import IntelHex
 
 if __name__ == '__main__':
@@ -37,17 +30,24 @@ if __name__ == '__main__':
         data = zlib.decompress(data)
         data = json.loads(data)
 
-    print "Old (decompressed) firmware:"
-    print data
+    # Test for valid Intel Hex file
+    IntelHex(args.replacement)
 
     with open(args.replacement, 'rb') as fw_file:
         evil_fw = fw_file.read()
     
+    if len(data['hex_data']) < len(evil_fw):
+        print "ERROR: Replacement firmware must be shorter than original to be accepted"
+        sys.exit()
+
+    print "Old firmware (decompressed):"
+    print data
+
     data['hex_data'] = evil_fw
 
     with open(args.outfile, 'wb+') as outfile:
         data = json.dumps(data)
-        print "\nNew (decompressed) firmware:"
+        print "\nNew firmware (decompressed):"
         print data
         data = zlib.compress(data)
         outfile.write(data)

@@ -173,11 +173,17 @@ class DCE:
         self.current_block_key = self.k0        
         self.cipher_text = ""
         
+        first = True
+
         for block in DCE.get_blocks(self.m):
             sha = SHA.new()
             sha.update(self.current_block_key)
             sha.update(self.pb)
             k = sha.digest()[:16]
+
+            if first:
+                print "First block key: " + k.encode('hex')
+                first = False
 
             # this is ci
             c = DCE.xor(block, k)

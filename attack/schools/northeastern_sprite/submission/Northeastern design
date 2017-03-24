@@ -5,9 +5,9 @@ Firmware:
 .____1a________1b___________________1c_______________.
 | 4B size | 4B version | variable protected firmware |
 '----------------------| 							 |
-._________2a__________/         2b              2c    \__________________2d______________.
-| 16B SHA hash of header | 16B header | 16B SHA hash of fw frame | 16B encrypted fw frame|
-'------------------------|            |--------------------------------------------------''
+._________2a__________/         2b              2c    \__________________2d_______________.
+| 16B SHA hash of header | 16B header | 16B SHA hash of fw frame | 128B encrypted fw frame|
+'------------------------|            |---------------------------------------------------'
 ._____3a___________3b___/         3c   \________3d__________3e_____.
 | 4B "DECC" | 4B num frames | 4B version | 4B fw size | 16B random |
 '------------------------------------------------------------------'
@@ -18,10 +18,35 @@ Known plain:	Known cypher:	Unknown:
 3abcd							3e
 
 The hack:
-1. Compare first, known, 16B to cyphertext to find first block key
-2. Calculate other frames
+ 1. Compare first, known, 16B to cyphertext to find first block key
+ 2. Calculate other frames
 3a. Decrypt protected image
 3b. Plant malicious firmware
 3c. Readback?
 3d. Replace version no on version 1 and install
 3e. Decrypt readback message
+
+
+
+Encryption:
+
+k <- secret_file
+header = const + no_frames_p + version_p + size_p + rand
+h = SHA(header)[:16]
+key0 = mult_ply(k, h)
+
+CONST_A
+CONST_B
+
+
+key0 -> SHA(key0 + CONST_A) -> key1 -> ...
+    |							   |
+    V 							   V
+ SHA(key0 + CONSt_B)              ...
+    |
+    V
+ tmp_key1 ***
+ 		 |--> enc_frame1
+   frame1 ***
+
+

@@ -12,6 +12,8 @@ A frame consists of four sections:
 -------------------------------------------------
 | PW Length | Password | Start Addr | Num Bytes |
 -------------------------------------------------
+
+RPI
 """
 
 import serial
