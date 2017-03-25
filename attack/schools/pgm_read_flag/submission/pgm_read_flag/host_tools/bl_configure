@@ -25,6 +25,8 @@ permissions and limitations under the License.
 Bootloader Configuration Tool
 
 This tool is responsible for configuring the bootloader after it is programmed.
+
+CMU
 """
 import argparse
 import os

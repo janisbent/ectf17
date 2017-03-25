@@ -3,6 +3,8 @@
 """
 Bootloader Configuration Tool
 This tool is responsible for configuring the bootloader after it is programmed.
+
+NE TRADE
 """
 import argparse
 import binascii

@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+"""
+Memory Readback Tool
+"""
+
+import serial
+import sys
+import argparse
+import norx
+from binascii import hexlify
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Memory Readback Tool')
+
+    parser.add_argument("--port", help="Serial port to send update over.",
+                        required=True)
+    parser.add_argument("--address", help="First address to read from.",
+                        required=True)
+    parser.add_argument("--num-bytes", help="Number of bytes to read.",
+                        required=True)
+    parser.add_argument("--datafile", help="File to write data to (optional).")
+    args = parser.parse_args()
+
+    f = open('secret_build_output.txt', 'rb')
+    key = f.read()
+    f.close()
+
+    # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
+    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
+
+    # Wait for bootloader to reset/enter readback mode.
+    while ser.read(1) != 'R':
+        pass
+
+    firmware_size = 30 * 1024 # 30 KiB
+
+    w = 32     # Word size 
+    r = 4      # Round number 
+    d = 1      # paralellism degree 
+    t = 4 * w  # Tag size
+
+    key_bytes = (w * 4) / 8
+    nce_bytes = (w * 2) / 8
+    tag_bytes = t / 8
+
+    secretfile = open('secret_build_output.txt', 'rb')
+    key = secretfile.read()[:key_bytes]
+    secretfile.close()
+
+    assert len(key) == key_bytes
+
+    fw = b''
+    for page in range(firmware_size / 256):
+            header = ser.read(4) #ser.read(1028)
+            nonce  = ser.read(nce_bytes)
+            ctext  = ser.read(256 + tag_bytes)
+            footer = b''
+
+            fw += norx.aead_decrypt(header, ctext, footer, nonce, key)
+
+            # fw += ptext
+
+            # print 'Packet {}: '.format(page)
+
+            # print 'Header: '
+            # print hexlify(header)
+
+            # print 'Nonce: '
+            # print hexlify(nonce)
+
+            # print 'Ctext: '
+            # print hexlify(ctext)
+
+            # print 'Decrypt: '
+            # print hexlify(ptext)
+
+    low = int(args.address)
+    high = low + int(args.num_bytes)
+
+    data = fw[low : high]
+
+    print(hexlify(data))
+
+    # Write raw data to file (optional).
+    if args.datafile:
+        with open(args.datafile, 'wb+') as datafile:
+            datafile.write(data)
