@@ -1,6 +1,0 @@
-*.swp
-*.pyc
-*.map
-*.log
-.vagrant
-.gdbinit

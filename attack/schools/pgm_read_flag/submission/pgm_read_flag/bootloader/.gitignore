@@ -1,5 +1,0 @@
-# Ignore build outputs.
-*.o
-*.elf
-*.hex
-*.a
